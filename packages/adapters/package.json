@@ -1,0 +1,23 @@
+{
+  "name": "@wagen/adapters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./dms": "./src/dms/index.ts",
+    "./fiscalization": "./src/fiscalization/index.ts",
+    "./email": "./src/email/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@wagen/config": "workspace:*",
+    "eslint": "^9.17.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
