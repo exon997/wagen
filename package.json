@@ -19,7 +19,8 @@
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
-    "db:lint": "supabase db lint"
+    "db:lint": "supabase db lint",
+    "db:test:rls": "bash -c \"docker exec -i supabase_db_wagen psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/rls.test.sql\""
   },
   "devDependencies": {
     "prettier": "^3.4.2",
