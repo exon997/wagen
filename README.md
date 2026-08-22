@@ -38,6 +38,10 @@ pnpm format
 
 ## Napomene o toolchainu
 
-- **pnpm + `node-linker=hoisted`** (`.npmrc`) — Metro lose prati simbolicke
-  linkove, pa `node_modules` mora biti plosnat. Store i workspace protokol ostaju.
+- **pnpm + `nodeLinker: hoisted`** — Metro lose prati simbolicke linkove, pa
+  `node_modules` mora biti plosnat. Store i workspace protokol ostaju.
+- **Postavke pnpm-a idu u `pnpm-workspace.yaml`, ne u `.npmrc`.** pnpm 11 ne
+  cita `node-linker`, `strict-peer-dependencies` i sl. iz `.npmrc` - postavka
+  tamo tiho ne radi nista. Provjera: `pnpm config get node-linker` ne smije
+  vratiti `undefined`.
 - **Turborepo** za orkestraciju i cache zadataka.

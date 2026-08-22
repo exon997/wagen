@@ -130,10 +130,14 @@ Ovo su odluke iz dokumenta koje utječu na gotovo svaki zadatak — drži ih u g
 
 ## 7. Struktura repoa
 
-**Alat: pnpm workspaces + Turborepo.** pnpm zbog strict `node_modules` — u monorepu
-s Expo i Next.js najskuplji bug je onaj gdje `apps/mobile` radi samo zato što je paket
-hoistan iz `apps/web`, pa pukne tek na EAS buildu. `.npmrc` nosi `node-linker=hoisted`
+**Alat: pnpm workspaces + Turborepo.** `pnpm-workspace.yaml` nosi `nodeLinker: hoisted`
 jer Metro loše prati simboličke linkove (Expova preporuka za monorepe).
+
+> **Zamka: pnpm 11 ne čita postavke iz `.npmrc`.** `node-linker`,
+> `strict-peer-dependencies` i slično moraju biti u `pnpm-workspace.yaml`, u
+> camelCase obliku. U `.npmrc` tiho ne rade ništa — bez greške, bez upozorenja.
+> Nakon svake izmjene provjeri: `pnpm config get node-linker` ne smije vratiti
+> `undefined`. Isto vrijedi za `allowBuilds` (odobravanje postinstall skripti).
 
 ```
 CLAUDE.md                 ← ova pravila

@@ -2,6 +2,18 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# NAPOMENA: pnpm 11 NE cita ove postavke iz .npmrc - moraju biti ovdje,
+# u camelCase obliku. Provjera da je postavka stvarno primljena:
+#   pnpm config get node-linker   (ne smije vratiti "undefined")
+
+# Metro (React Native bundler) lose prati simbolicke linkove, pa node_modules
+# mora biti plosnat. Zadrzavamo pnpm store i workspace protokol.
+nodeLinker: hoisted
+
+# React Native ekosustav ima kronicno neuredne peer deps (SDK 57 ih ima i
+# medu vlastitim paketima); strogi nacin bi blokirao instalaciju na tudim greskama.
+strictPeerDependencies: false
+
 # Postinstall skripte su blokirane po defaultu (pnpm sigurnosna mjera) i svaka
 # odluka mora biti eksplicitno zapisana ovdje - ne kroz interaktivni prompt,
 # da CI i svjeza klona dobiju isto ponasanje.
