@@ -38,7 +38,6 @@ export class ConsoleEmailAdapter implements EmailAdapter {
   send(message: EmailMessage): Promise<EmailSendResult> {
     this.counter += 1;
     const id = `console-${this.counter}`;
-    // eslint-disable-next-line no-console
     console.info(`[email:console] -> ${message.to} | ${message.subject} (${id})`);
     return Promise.resolve({ id });
   }
