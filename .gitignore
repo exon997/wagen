@@ -1,0 +1,24 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+.turbo/
+.expo/
+*.tsbuildinfo
+
+# okolina i tajne
+.env
+.env.*
+!.env.example
+
+# Supabase lokalno
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
