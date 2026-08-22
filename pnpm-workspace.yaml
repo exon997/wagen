@@ -1,3 +1,13 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Postinstall skripte su blokirane po defaultu (pnpm sigurnosna mjera) i svaka
+# odluka mora biti eksplicitno zapisana ovdje - ne kroz interaktivni prompt,
+# da CI i svjeza klona dobiju isto ponasanje.
+#
+# unrs-resolver: dolazi kroz eslint-config-next -> eslint-import-resolver-typescript.
+# Nativnu binarku za platformu isporucuje zasebna optional ovisnost
+# (@unrs/resolver-binding-win32-x64-msvc), pa postinstall skripta nije potrebna.
+allowBuilds:
+  unrs-resolver: false
