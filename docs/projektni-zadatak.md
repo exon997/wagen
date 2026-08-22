@@ -164,6 +164,7 @@ Redoslijed lansiranja se obrće u odnosu na klasični model: **aplikacija živi 
 - Kad se verificirani email/telefon s nove auth metode poklapa s postojećim računom → automatsko povezivanje identiteta (Supabase `linkIdentity`), umjesto duplog računa
 - **Edge case — sudar identiteta:** ako sustav detektira potencijalni sudar (isti email/telefon, različit provider) → traži potvrdu kroz već poznati/verificirani kanal (npr. SMS na postojeći broj) prije spajanja računa, radi sprječavanja account takeover napada
 - Anonimna sesija (VIN sken, foto) → upgrade na puni identitet tek kod SMS OTP verifikacije pri objavi oglasa
+- **SMS provider: Twilio (ODLUČENO)** — OTP se šalje kroz Twilio (nativna Supabase podrška, postojeći račun). Lokalni razvoj i CI koriste `test_otp` fiksne kodove — nijedan stvarni SMS se ne šalje izvan produkcije.
 - Magic link + app: potreban deep linking (iOS Universal Links, Android App Links) da klik na email link otvori app umjesto browsera — Supabase podržava, ali treba domain verification setup
 
 ### 5.3 Registracija trgovaca (B2B)
