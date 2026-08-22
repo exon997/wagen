@@ -10,7 +10,9 @@ zajednicka domenska jezgra u jednom monorepu.
 
 - Node **24** (vidi `.nvmrc`)
 - pnpm preko corepacka: `corepack enable`
-- Docker Desktop (za lokalni Supabase stack — dolazi u koraku B1)
+- Docker Desktop (za lokalni Supabase stack)
+
+Kopiraj `.env.example` u `.env.local` i popuni vrijednosti. `.env.local` se ne commita.
 
 ## Pokretanje
 
@@ -22,6 +24,21 @@ pnpm typecheck    # provjera tipova
 pnpm lint
 pnpm format
 ```
+
+## Baza (Supabase)
+
+```bash
+pnpm db:start     # digne lokalni stack (Postgres, Auth, Storage, Studio)
+pnpm db:status    # URL-ovi i kljucevi lokalnog stacka
+pnpm db:reset     # ponovno primijeni sve migracije + seed
+pnpm db:diff      # generira migraciju iz razlike sheme
+pnpm db:stop      # zaustavi stack
+```
+
+Studio je na <http://127.0.0.1:54323>, API na <http://127.0.0.1:54321>.
+
+Migracije zive u `supabase/migrations/` i verzionirane su. Postgres je izvor
+istine; Meilisearch indeks je derivat i smije se u svakom trenutku rebuildati.
 
 ## Struktura
 
