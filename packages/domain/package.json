@@ -1,0 +1,23 @@
+{
+  "name": "@wagen/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@wagen/config": "workspace:*",
+    "eslint": "^9.17.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

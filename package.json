@@ -11,6 +11,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
@@ -20,6 +21,7 @@
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
     "db:lint": "supabase db lint",
+    "db:types": "supabase gen types typescript --local > packages/supabase/src/types.ts",
     "db:test:rls": "bash -c \"docker exec -i supabase_db_wagen psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/rls.test.sql\""
   },
   "devDependencies": {
