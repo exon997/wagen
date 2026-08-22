@@ -3,3 +3,4 @@ export * from './price';
 export * from './title';
 export * from './badges';
 export * from './listing';
+export * from './vin';
