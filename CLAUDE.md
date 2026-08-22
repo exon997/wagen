@@ -48,17 +48,17 @@ Ne oslanjaj se na sažetak u ovom fajlu — ovdje su pravila, tamo su odluke.
 
 ## 3. Tehnički stack (odlučeno, sekcija 1)
 
-| Sloj | Tehnologija |
-|---|---|
-| Web frontend | Next.js (SSR + ISR za SEO-kritične stranice) |
-| Mobilna aplikacija | React Native + Expo (iOS/Android, jedan codebase) |
-| Backend / auth / storage | Supabase (jedinstven identity layer za web i app) |
-| Pretraga | Meilisearch + Claude API sloj za natural language upite |
-| VIN dekodiranje | Outvin API (server-side cache) + lokalni ISO VIN (WMI) fallback |
-| DMS sync | background job, adapter pattern (AutoBrief = prvi adapter) |
-| Plaćanja | Stripe (Billing/Subscriptions za trgovce, one-time za boost) |
-| Fiskalizacija | vlastiti `invoices` entitet + adapter za posrednika (posrednik TBD) |
-| Jezik | TypeScript kroz cijeli stack |
+| Sloj                     | Tehnologija                                                         |
+| ------------------------ | ------------------------------------------------------------------- |
+| Web frontend             | Next.js (SSR + ISR za SEO-kritične stranice)                        |
+| Mobilna aplikacija       | React Native + Expo (iOS/Android, jedan codebase)                   |
+| Backend / auth / storage | Supabase (jedinstven identity layer za web i app)                   |
+| Pretraga                 | Meilisearch + Claude API sloj za natural language upite             |
+| VIN dekodiranje          | Outvin API (server-side cache) + lokalni ISO VIN (WMI) fallback     |
+| DMS sync                 | background job, adapter pattern (AutoBrief = prvi adapter)          |
+| Plaćanja                 | Stripe (Billing/Subscriptions za trgovce, one-time za boost)        |
+| Fiskalizacija            | vlastiti `invoices` entitet + adapter za posrednika (posrednik TBD) |
+| Jezik                    | TypeScript kroz cijeli stack                                        |
 
 ---
 
@@ -117,14 +117,14 @@ Ovo su odluke iz dokumenta koje utječu na gotovo svaki zadatak — drži ih u g
 
 ## 6. Redoslijed rada (sekcija 21)
 
-| Sprint | Sadržaj |
-|---|---|
-| **1 — Temelj** | Supabase shema + RLS + auth; kanonski model + adapter sučelja; kostur `/admin`; Outvin + ISO VIN fallback; `equipment_codes` rječnik |
-| **2 — App: foto pipeline** | VIN sken → vođeno fotografiranje → obrada; capability detection (iOS Vision / Android ML Kit); watermark; dva izlazna moda |
-| **3 — Faza 0 backend** | draft/pending pipeline, deep linkovi iz FB grupa, attribution, metrike Faze 0. **Gate: app ide u FB grupe, web još ne postoji javno.** |
-| **4 — Web: pretraga i oglasi** | Meilisearch, stranice oglasa/rezultata, Garaža, spremljene pretrage, notifikacije, SEO sloj, PDF servis |
-| **5 — Trgovci i lansiranje** | Dealer onboarding, Kokpit + Izlog, `/za-trgovce`, Stripe Billing, AutoBrief adapter. **Launch dan.** |
-| **Post-launch** | Fiskalizacija, wagen indeks, 9:16 video, auto-badging, mobile.de adapter, Faza 2 kategorije |
+| Sprint                         | Sadržaj                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 — Temelj**                 | Supabase shema + RLS + auth; kanonski model + adapter sučelja; kostur `/admin`; Outvin + ISO VIN fallback; `equipment_codes` rječnik   |
+| **2 — App: foto pipeline**     | VIN sken → vođeno fotografiranje → obrada; capability detection (iOS Vision / Android ML Kit); watermark; dva izlazna moda             |
+| **3 — Faza 0 backend**         | draft/pending pipeline, deep linkovi iz FB grupa, attribution, metrike Faze 0. **Gate: app ide u FB grupe, web još ne postoji javno.** |
+| **4 — Web: pretraga i oglasi** | Meilisearch, stranice oglasa/rezultata, Garaža, spremljene pretrage, notifikacije, SEO sloj, PDF servis                                |
+| **5 — Trgovci i lansiranje**   | Dealer onboarding, Kokpit + Izlog, `/za-trgovce`, Stripe Billing, AutoBrief adapter. **Launch dan.**                                   |
+| **Post-launch**                | Fiskalizacija, wagen indeks, 9:16 video, auto-badging, mobile.de adapter, Faza 2 kategorije                                            |
 
 ---
 
@@ -151,6 +151,7 @@ supabase/seed.sql         ← razvojni podaci
 
 **Zašto tri paketa, a ne jedan `shared`** — isti princip fizičkog razdvajanja kao field
 ownership (15.3): granica koju arhitektura garantira ne treba disciplinu da se održi.
+
 - `domain` nema runtime ovisnosti → mobilni bundle ne vuče Stripe/fiskalizacijske SDK-ove.
 - `supabase` sadrži generirane tipove koji se mijenjaju pri **svakoj** migraciji → da su
   u `domain`, svaka migracija bi invalidirala cache cijelog grafa ovisnosti.

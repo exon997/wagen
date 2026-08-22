@@ -1,0 +1,19 @@
+# Jedinstveni zavrseci redaka: repo uvijek LF, radna kopija po OS-u.
+# Bez ovoga Windows i CI proizvode lazne diffove na svakom fajlu.
+* text=auto eol=lf
+
+# Binarni sadrzaj - nikad ne diraj
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.pdf binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Lockfile: ne prikazuj u diffu, ne spajaj rucno
+pnpm-lock.yaml -diff linguist-generated=true

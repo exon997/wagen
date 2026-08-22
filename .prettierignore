@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.expo/
+pnpm-lock.yaml
+
+# Izvor istine - prettier ga ne dira. Reflow tablica i lista stvorio bi sum
+# u dokumentu koji se cita i rucno ureduje (sekcija 21: dokument ostaje ziv).
+docs/

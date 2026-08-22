@@ -1,0 +1,23 @@
+{
+  "name": "wagen",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}
