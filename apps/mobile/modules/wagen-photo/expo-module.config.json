@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["WagenPhotoModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.wagenphoto.WagenPhotoModule"]
+  }
+}

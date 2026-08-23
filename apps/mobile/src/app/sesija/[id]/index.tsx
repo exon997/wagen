@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, decodeVinLocally } from '@wagen/domain';
 import { getSession, type LocalSession } from '@/lib/sessions';
+import { detectProcessingCapability, type ProcessingCapability } from '@/lib/capabilities';
 
 /**
  * Pregled sesije - koraci pipelinea (4.2): VIN -> fotografiranje -> obrada
@@ -12,6 +13,13 @@ export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [session, setSession] = useState<LocalSession | null>(null);
+  const [capability, setCapability] = useState<ProcessingCapability | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      void detectProcessingCapability().then(setCapability);
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -69,6 +77,17 @@ export default function SessionScreen() {
         </Pressable>
       )}
 
+      {capability && (
+        <Text style={styles.capability}>
+          Obrada:{' '}
+          {capability === 'full'
+            ? 'puni pipeline (segmentacija) ✓'
+            : capability === 'blur_only'
+              ? 'osnovna (uredjaj ne podrzava puni set)'
+              : 'nedostupna u ovom okruzenju'}
+        </Text>
+      )}
+
       <View style={[styles.step, styles.stepDisabled]}>
         <Text style={styles.stepLabel}>3 · {session.mode === 'photo' ? 'Preuzmi' : 'Objavi'}</Text>
         <Text style={styles.muted}>Stize u bloku J</Text>
@@ -90,4 +109,5 @@ const styles = StyleSheet.create({
   stepLabel: { color: colors.cyan, fontSize: 14, fontWeight: '600', marginBottom: 4 },
   stepValue: { color: colors.white, fontSize: 16 },
   muted: { color: colors.gray, fontSize: 14 },
+  capability: { color: colors.gray, fontSize: 12, marginBottom: 12 },
 });
