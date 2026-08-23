@@ -17,8 +17,4 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// 3. Bez hijerarhijskog penjanja - trazi iskljucivo u putanjama iznad,
-//    inace Metro moze pokupiti krivu kopiju paketa
-config.resolver.disableHierarchicalLookup = true;
-
 module.exports = config;

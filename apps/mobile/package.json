@@ -41,5 +41,14 @@
     "@wagen/config": "workspace:*",
     "eslint": "^9.17.0",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "@react-native-ml-kit/text-recognition"
+        ]
+      }
+    }
   }
 }
