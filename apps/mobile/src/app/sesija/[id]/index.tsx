@@ -57,6 +57,18 @@ export default function SessionScreen() {
         </Text>
       </Pressable>
 
+      {session.photos.length > 0 && (
+        <Pressable
+          style={styles.step}
+          onPress={() =>
+            router.push({ pathname: '/sesija/[id]/fotografije', params: { id: session.id } })
+          }
+        >
+          <Text style={styles.stepLabel}>Pregled fotografija</Text>
+          <Text style={styles.stepValue}>{session.photos.length} snimljeno →</Text>
+        </Pressable>
+      )}
+
       <View style={[styles.step, styles.stepDisabled]}>
         <Text style={styles.stepLabel}>3 · {session.mode === 'photo' ? 'Preuzmi' : 'Objavi'}</Text>
         <Text style={styles.muted}>Stize u bloku J</Text>
