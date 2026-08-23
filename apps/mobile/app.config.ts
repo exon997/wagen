@@ -40,6 +40,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     [
+      'expo-camera',
+      {
+        cameraPermission: 'wagen koristi kameru za VIN sken i fotografiranje vozila.',
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         backgroundColor: '#000000',
