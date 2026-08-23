@@ -9,10 +9,12 @@
  * Fire-and-forget: neuspjeh synca NIKAD ne blokira korisnika - lokalna
  * pohrana je izvor istine do crossposta, sync se ponavlja na iducoj promjeni.
  */
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import type { LocalSession } from '@/lib/sessions';
 
 export async function syncSession(session: LocalSession): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
   const {
     data: { user },
   } = await supabase.auth.getUser();
