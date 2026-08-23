@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { colors, decodeVinLocally } from '@wagen/domain';
+import * as Clipboard from 'expo-clipboard';
+import { colors, decodeVinLocally, isStructurallyValidVin } from '@wagen/domain';
 import { updateSession } from '@/lib/sessions';
 import { syncSession } from '@/lib/sync';
 import { scanVinFromImage } from '@/lib/vin-scan';
@@ -21,6 +22,17 @@ export default function VinScreen() {
   const [busy, setBusy] = useState(false);
   const [manualVin, setManualVin] = useState('');
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
+  const [clipboardVin, setClipboardVin] = useState<string | null>(null);
+
+  // Privatni prodavaci cesto imaju VIN u aplikaciji proizvodjaca (myBMW i
+  // sl.) - kopiranje jednim tapom. Ako medjuspremnik nosi validan VIN,
+  // ponudi ga. Trgovci ovo nemaju (nema app po autu na zalihi) - njima sken.
+  useEffect(() => {
+    void Clipboard.getStringAsync().then((text) => {
+      const candidate = text.trim().toUpperCase();
+      if (isStructurallyValidVin(candidate)) setClipboardVin(candidate);
+    });
+  }, []);
 
   const decoded = manualVin.length >= 5 ? decodeVinLocally(manualVin) : null;
 
@@ -87,6 +99,12 @@ export default function VinScreen() {
       <Pressable style={styles.primary} onPress={() => setScanning(true)}>
         <Text style={styles.primaryText}>Skeniraj kamerom</Text>
       </Pressable>
+
+      {clipboardVin && clipboardVin !== manualVin && (
+        <Pressable style={styles.clipboardChip} onPress={() => setManualVin(clipboardVin)}>
+          <Text style={styles.clipboardChipText}>Zalijepi {clipboardVin} ✓</Text>
+        </Pressable>
+      )}
 
       <Text style={styles.label}>ili unesi rucno:</Text>
       <TextInput
@@ -162,4 +180,13 @@ const styles = StyleSheet.create({
   secondary: { padding: 16, alignItems: 'center' },
   secondaryText: { color: colors.gray, fontSize: 14 },
   disabled: { opacity: 0.35 },
+  clipboardChip: {
+    borderColor: colors.cyan,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  clipboardChipText: { color: colors.cyan, fontSize: 14, fontVariant: ['tabular-nums'] },
 });
