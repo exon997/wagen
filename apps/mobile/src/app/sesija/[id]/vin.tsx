@@ -6,7 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import { colors, decodeVinLocally, isStructurallyValidVin } from '@wagen/domain';
 import { updateSession } from '@/lib/sessions';
 import { syncSession } from '@/lib/sync';
-import { scanVinFromImage } from '@/lib/vin-scan';
+import { isOcrAvailable, scanVinFromImage } from '@/lib/vin-scan';
 
 /**
  * G3: VIN korak (3.2) - sken kamerom ili rucni unos. Oldtimer (kratki
@@ -23,6 +23,11 @@ export default function VinScreen() {
   const [manualVin, setManualVin] = useState('');
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
   const [clipboardVin, setClipboardVin] = useState<string | null>(null);
+  const [ocrReady, setOcrReady] = useState(false);
+
+  useEffect(() => {
+    void isOcrAvailable().then(setOcrReady);
+  }, []);
 
   // Privatni prodavaci cesto imaju VIN u aplikaciji proizvodjaca (myBMW i
   // sl.) - kopiranje jednim tapom. Ako medjuspremnik nosi validan VIN,
@@ -96,9 +101,11 @@ export default function VinScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'VIN broj' }} />
 
-      <Pressable style={styles.primary} onPress={() => setScanning(true)}>
-        <Text style={styles.primaryText}>Skeniraj kamerom</Text>
-      </Pressable>
+      {ocrReady && (
+        <Pressable style={styles.primary} onPress={() => setScanning(true)}>
+          <Text style={styles.primaryText}>Skeniraj kamerom</Text>
+        </Pressable>
+      )}
 
       {clipboardVin && clipboardVin !== manualVin && (
         <Pressable style={styles.clipboardChip} onPress={() => setManualVin(clipboardVin)}>

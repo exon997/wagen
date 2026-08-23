@@ -5,7 +5,6 @@
  * kandidati iz prepoznatog teksta -> E1 validacija (packages/domain).
  * Bez mreze - Outvin poziv ide tek nakon validacije, server-side (G4).
  */
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { decodeVinLocally, isStructurallyValidVin } from '@wagen/domain';
 
 /** Cesta OCR zamjena: I/O/Q se u VIN-u ne pojavljuju (ISO 3779). */
@@ -24,7 +23,20 @@ export interface VinScanResult {
 }
 
 /** Izvuce VIN kandidate iz slike. Vraca prvi strukturno valjan VIN. */
+/** OCR je dostupan samo u dev/preview buildovima - Expo Go nema nativni modul. */
+export async function isOcrAvailable(): Promise<boolean> {
+  try {
+    await import('@react-native-ml-kit/text-recognition');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function scanVinFromImage(imageUri: string): Promise<VinScanResult> {
+  // Lijeni import: Expo Go (iOS bez Developer racuna) nema ML Kit -
+  // ekran se ne smije srusiti, gumb za sken se sakrije (isOcrAvailable).
+  const { default: TextRecognition } = await import('@react-native-ml-kit/text-recognition');
   const result = await TextRecognition.recognize(imageUri);
 
   const candidates: string[] = [];
