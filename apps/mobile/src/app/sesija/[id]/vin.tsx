@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, decodeVinLocally } from '@wagen/domain';
 import { updateSession } from '@/lib/sessions';
+import { syncSession } from '@/lib/sync';
 import { scanVinFromImage } from '@/lib/vin-scan';
 
 /**
@@ -25,7 +26,8 @@ export default function VinScreen() {
 
   const accept = async (vin: string | null) => {
     if (!id) return;
-    await updateSession(id, { vin });
+    const updated = await updateSession(id, { vin });
+    void syncSession(updated);
     router.back();
   };
 

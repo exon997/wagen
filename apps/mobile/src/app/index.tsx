@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
 import { createSession, type SessionMode } from '@/lib/sessions';
+import { syncSession } from '@/lib/sync';
 
 /**
  * Home: dva ulaza, jedan pipeline (4.2). Ulazni mod odredjuje default
@@ -12,6 +13,7 @@ export default function HomeScreen() {
 
   const start = async (mode: SessionMode) => {
     const session = await createSession(mode);
+    void syncSession(session);
     router.push({ pathname: '/sesija/[id]', params: { id: session.id } });
   };
 
