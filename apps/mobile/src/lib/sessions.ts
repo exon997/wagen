@@ -18,6 +18,8 @@ export interface LocalPhoto {
   uri: string;
   angleCategory: PhotoAngle | null;
   sortOrder: number;
+  /** Putanja u Storageu nakon uploada - undefined dok ceka. */
+  remotePath?: string;
 }
 
 export interface LocalSession {
