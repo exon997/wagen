@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as MediaLibrary from 'expo-media-library';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors } from '@wagen/domain';
 import { getSession, updateSession, type LocalPhoto, type LocalSession } from '@/lib/sessions';
@@ -19,6 +20,33 @@ const ANGLE_LABELS: Record<string, string> = {
 export default function PhotosScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [session, setSession] = useState<LocalSession | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // J1 (izvucen naprijed): spremanje u galeriju telefona - srce foto moda.
+  // Album 'wagen' = fotke koje korisnik nosi na FB/Njuskalo (distribucija 4.4).
+  const saveAllToGallery = async () => {
+    if (!session || saving) return;
+    setSaving(true);
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Bez dozvole', 'Za spremanje u galeriju treba dozvola za fotografije.');
+        return;
+      }
+      let saved = 0;
+      for (const photo of session.photos) {
+        try {
+          await MediaLibrary.saveToLibraryAsync(photo.uri);
+          saved += 1;
+        } catch (e) {
+          console.warn('Spremanje fotke nije uspjelo:', e);
+        }
+      }
+      Alert.alert('Spremljeno', `${saved} od ${session.photos.length} fotografija je u galeriji.`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -61,6 +89,16 @@ export default function PhotosScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: `Fotografije (${session.photos.length})` }} />
+
+      {session.photos.length > 0 && (
+        <Pressable
+          style={[styles.saveButton, saving && styles.saveButtonBusy]}
+          onPress={() => void saveAllToGallery()}
+          disabled={saving}
+        >
+          <Text style={styles.saveButtonText}>{saving ? 'Spremam…' : 'Spremi sve u galeriju'}</Text>
+        </Pressable>
+      )}
       <FlatList
         data={session.photos}
         keyExtractor={(p) => p.id}
@@ -111,4 +149,13 @@ const styles = StyleSheet.create({
   action: { color: colors.white, fontSize: 16, padding: 4 },
   delete: { color: '#FF5555' },
   muted: { color: colors.gray, fontSize: 14 },
+  saveButton: {
+    backgroundColor: colors.cyan,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  saveButtonBusy: { opacity: 0.5 },
+  saveButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
 });
