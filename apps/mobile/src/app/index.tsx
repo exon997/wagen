@@ -1,7 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
 import { createSession, type SessionMode } from '@/lib/sessions';
+import { clearLastCrash, getLastCrash } from '@/lib/crash-log';
 import { syncSession } from '@/lib/sync';
 
 /**
@@ -10,6 +12,18 @@ import { syncSession } from '@/lib/sync';
  */
 export default function HomeScreen() {
   const router = useRouter();
+  const [crash, setCrash] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getLastCrash().then((c) =>
+      setCrash(
+        c
+          ? `
+`
+          : null,
+      ),
+    );
+  }, []);
 
   const start = async (mode: SessionMode) => {
     const session = await createSession(mode);
@@ -20,6 +34,21 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.brand}>wagen</Text>
+
+      {crash && (
+        <ScrollView style={styles.crashBox}>
+          <Text style={styles.crashTitle}>Zadnje rusenje (slikaj ovo):</Text>
+          <Text style={styles.crashText}>{crash}</Text>
+          <Pressable
+            onPress={() => {
+              void clearLastCrash();
+              setCrash(null);
+            }}
+          >
+            <Text style={styles.crashDismiss}>Zatvori</Text>
+          </Pressable>
+        </ScrollView>
+      )}
 
       <Pressable
         style={[styles.entry, styles.entryPrimary]}
@@ -55,4 +84,15 @@ const styles = StyleSheet.create({
   entryPrimary: { borderColor: colors.cyan, backgroundColor: '#0a1a1c' },
   entryTitle: { color: colors.white, fontSize: 20, fontWeight: '600' },
   entrySubtitle: { color: colors.gray, fontSize: 14, marginTop: 4 },
+  crashBox: {
+    maxHeight: 220,
+    borderColor: '#FF5555',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 24,
+  },
+  crashTitle: { color: '#FF5555', fontWeight: '700', marginBottom: 6 },
+  crashText: { color: colors.white, fontSize: 11, fontFamily: 'monospace' },
+  crashDismiss: { color: colors.cyan, marginTop: 10 },
 });
