@@ -51,7 +51,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   experiments: {
     typedRoutes: true,
   },
+  owner: 'wagen',
   extra: {
+    eas: {
+      projectId: '69269736-854f-4ed9-bdf6-96c3e3f41e24',
+    },
     supabaseUrl: process.env['EXPO_PUBLIC_SUPABASE_URL'],
     supabasePublishableKey: process.env['EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'],
   },
