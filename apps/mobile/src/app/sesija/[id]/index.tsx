@@ -47,10 +47,15 @@ export default function SessionScreen() {
         </Text>
       </Pressable>
 
-      <View style={[styles.step, styles.stepDisabled]}>
+      <Pressable
+        style={styles.step}
+        onPress={() => router.push({ pathname: '/sesija/[id]/kamera', params: { id: session.id } })}
+      >
         <Text style={styles.stepLabel}>2 · Fotografiranje</Text>
-        <Text style={styles.muted}>Stize u koraku H1 ({session.photos.length} fotografija)</Text>
-      </View>
+        <Text style={styles.stepValue}>
+          {session.photos.length > 0 ? ` fotografija` : 'Kreni →'}
+        </Text>
+      </Pressable>
 
       <View style={[styles.step, styles.stepDisabled]}>
         <Text style={styles.stepLabel}>3 · {session.mode === 'photo' ? 'Preuzmi' : 'Objavi'}</Text>
