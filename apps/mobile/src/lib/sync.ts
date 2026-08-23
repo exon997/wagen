@@ -32,3 +32,16 @@ export async function syncSession(session: LocalSession): Promise<void> {
     console.warn('Sync sesije nije uspio (pokusat cemo ponovno):', error.message);
   }
 }
+
+/**
+ * Sync svih lokalnih sesija - poziva se pri otvaranju aplikacije. Pokriva
+ * offline rad (garaza bez signala): sesije dovrsene bez veze zrcale se cim
+ * se app otvori s internetom.
+ */
+export async function syncAllSessions(): Promise<void> {
+  const { listSessions } = await import('@/lib/sessions');
+  const sessions = await listSessions();
+  for (const session of sessions) {
+    await syncSession(session);
+  }
+}

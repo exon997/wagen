@@ -67,7 +67,8 @@ export default function VinScreen() {
         <Stack.Screen options={{ title: 'Skeniraj VIN' }} />
         <CameraView ref={setCameraRef} style={styles.camera} facing="back" />
         <Text style={styles.hint}>
-          VIN je na vjetrobranu (dolje lijevo) ili na naljepnici dovratnika
+          Najlakse: skeniraj VIN iz prometne dozvole. Na autu: naljepnica na stoku vrata; neki auti
+          i vjetrobran dolje lijevo.
         </Text>
         <Pressable style={styles.primary} onPress={() => void snapAndScan()} disabled={busy}>
           <Text style={styles.primaryText}>{busy ? 'Prepoznajem…' : 'Slikaj'}</Text>

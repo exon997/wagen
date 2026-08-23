@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { ensureSession } from '@/lib/supabase';
+import { syncAllSessions } from '@/lib/sync';
 
 export default function RootLayout() {
   // 4.3: anonimna sesija na startu - bez registracijske vratarnice
   useEffect(() => {
-    ensureSession().catch((e: unknown) => console.warn('Anonimna sesija nije uspjela:', e));
+    ensureSession()
+      .then(() => syncAllSessions())
+      .catch((e: unknown) => console.warn('Sesija/sync pri startu nije uspio:', e));
   }, []);
 
   return (
