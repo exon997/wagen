@@ -109,10 +109,16 @@ function mapResponse(raw: unknown): Omit<VinDecodeResult, 'raw'> {
   const d = asDict(root['data']) ?? asDict(root['vehicle']) ?? asDict(root['result']) ?? root;
 
   const make = pickString(d, ['make', 'manufacturer', 'brand']);
-  const model = pickString(d, ['model', 'model_name', 'modelName']);
+  // vindata 'model' spaja model i motorizaciju ("X1 sDrive20i") - prvi token
+  // je model, ostatak motorizacija za red 2 naslova (13.1). Heuristika;
+  // raw uvijek cuva original.
+  const modelRaw = pickString(d, ['model', 'model_name', 'modelName']);
+  const spaceIdx = modelRaw?.indexOf(' ') ?? -1;
+  const model = spaceIdx > 0 ? modelRaw!.slice(0, spaceIdx) : modelRaw;
+  const engineFromModel = spaceIdx > 0 ? modelRaw!.slice(spaceIdx + 1) : null;
 
   const equipment: VinEquipmentItem[] = [];
-  const rawEquipment = d['equipment'] ?? d['options'] ?? d['features'];
+  const rawEquipment = d['allOptions'] ?? d['equipment'] ?? d['options'] ?? d['features'];
   if (Array.isArray(rawEquipment)) {
     for (const item of rawEquipment) {
       if (typeof item === 'string' && item.trim()) {
@@ -130,7 +136,8 @@ function mapResponse(raw: unknown): Omit<VinDecodeResult, 'raw'> {
     make,
     model,
     trim: pickString(d, ['trim', 'trim_level', 'series', 'grade', 'equipment_line']),
-    engineLabel: pickString(d, ['engine', 'engine_name', 'engine_label', 'motorization']),
+    engineLabel:
+      pickString(d, ['engine', 'engine_name', 'engine_label', 'motorization']) ?? engineFromModel,
     modelYear: pickNumber(d, ['model_year', 'year', 'modelYear', 'production_year']),
     fuel: pickString(d, ['fuel', 'fuel_type', 'fuelType']),
     transmission: pickString(d, ['transmission', 'gearbox', 'transmission_type']),

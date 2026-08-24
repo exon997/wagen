@@ -19,11 +19,14 @@ if (!env.VINDATA_API_KEY) {
   process.exit(1);
 }
 
-const VINS = [
-  'TMBJJ7NS5J8043174', // Skoda - Kimov primjer s weba (poznat dobar rezultat)
-  'WBAJG310303F05030', // BMW - sinov terenski sken
-  'WVWZZZ1JZ5W123456', // VW - izmisljen ali validan format (test promasaja)
-];
+const VINS =
+  process.argv.slice(2).length > 0
+    ? process.argv.slice(2)
+    : [
+        'TMBJJ7NS5J8043174', // Skoda - Kimov primjer s weba (poznat dobar rezultat)
+        'WBAJG310303F05030', // BMW - sinov terenski sken
+        'WVWZZZ1JZ5W123456', // VW - izmisljen ali validan format (test promasaja)
+      ];
 
 const BASE = 'https://gxvtafqbraaifsnthsyj.supabase.co/functions/v1/api-vin-decode';
 for (const vin of VINS) {
