@@ -49,9 +49,11 @@ export default function SessionScreen() {
       >
         <Text style={styles.stepLabel}>1 · VIN</Text>
         <Text style={styles.stepValue}>
-          {session.vin
-            ? `${session.vin}${decoded?.manufacturer ? ` (${decoded.manufacturer})` : ''}`
-            : 'Skeniraj ili unesi →'}
+          {session.vehicleInfo
+            ? `${session.vehicleInfo.make} ${session.vehicleInfo.model}${session.vehicleInfo.engineLabel ? ` ${session.vehicleInfo.engineLabel}` : ''}${session.vehicleInfo.modelYear ? ` · ${session.vehicleInfo.modelYear}.` : ''} ✓`
+            : session.vin
+              ? `${session.vin}${decoded?.manufacturer ? ` (${decoded.manufacturer})` : ''}`
+              : 'Skeniraj ili unesi →'}
         </Text>
       </Pressable>
 

@@ -24,11 +24,20 @@ export interface LocalPhoto {
   processedUri?: string;
 }
 
+export interface VehicleInfo {
+  make: string;
+  model: string;
+  engineLabel: string | null;
+  modelYear: number | null;
+}
+
 export interface LocalSession {
   id: string;
   mode: SessionMode;
   status: SessionStatus;
   vin: string | null;
+  /** Rezultat server-side decodea (E2); null = jos nije dekodirano. */
+  vehicleInfo?: VehicleInfo | null;
   photos: LocalPhoto[];
   createdAt: string;
   updatedAt: string;

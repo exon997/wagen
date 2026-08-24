@@ -49,7 +49,9 @@ export default function PublishScreen() {
   }, [id]);
 
   const decoded = session?.vin ? decodeVinLocally(session.vin) : null;
-  const needsModel = true; // Outvin cache jos ne puni model - E2 ceka kredite
+  // E2: model poznat iz server decodea - polje se trazi samo kad ga nema
+  const knownModel = session?.vehicleInfo?.model ?? null;
+  const needsModel = !knownModel;
 
   const submitForm = async () => {
     if (busy || !session) return;
@@ -98,7 +100,8 @@ export default function PublishScreen() {
         priceEur: price ? Math.round(Number(price)) : null,
         mileageKm: mileage ? Math.round(Number(mileage)) : null,
         firstRegistrationYear: year ? Number(year) : null,
-        model: model || undefined,
+        model: knownModel ?? (model || undefined),
+        make: session.vehicleInfo?.make,
       });
       setListingId(newId);
       setStep('done');
@@ -136,8 +139,11 @@ export default function PublishScreen() {
 
             <Text style={styles.summary}>
               {session.photos.length} fotografija
-              {session.vin ? ` · VIN ${session.vin.slice(0, 8)}…` : ''}
-              {decoded?.manufacturer ? ` · ${decoded.manufacturer}` : ''}
+              {session.vehicleInfo
+                ? ` · ${session.vehicleInfo.make} ${session.vehicleInfo.model}${session.vehicleInfo.engineLabel ? ` ${session.vehicleInfo.engineLabel}` : ''}`
+                : decoded?.manufacturer
+                  ? ` · ${decoded.manufacturer}`
+                  : ''}
             </Text>
 
             {needsModel && (

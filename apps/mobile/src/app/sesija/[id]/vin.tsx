@@ -7,6 +7,7 @@ import { colors, decodeVinLocally, isStructurallyValidVin } from '@wagen/domain'
 import { updateSession } from '@/lib/sessions';
 import { syncSession } from '@/lib/sync';
 import { isOcrAvailable, scanVinFromImage } from '@/lib/vin-scan';
+import { decodeVinRemote } from '@/lib/decode';
 
 /**
  * G3: VIN korak (3.2) - sken kamerom ili rucni unos. Oldtimer (kratki
@@ -43,8 +44,16 @@ export default function VinScreen() {
 
   const accept = async (vin: string | null) => {
     if (!id) return;
-    const updated = await updateSession(id, { vin });
+    let updated = await updateSession(id, { vin });
     void syncSession(updated);
+    if (vin) {
+      // E2: server decode (cache + vindata) - kratki timeout, offline ne blokira
+      const info = await Promise.race([
+        decodeVinRemote(vin),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+      ]);
+      if (info) updated = await updateSession(id, { vehicleInfo: info });
+    }
     router.back();
   };
 
