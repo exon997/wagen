@@ -8,7 +8,8 @@
     "./dms": "./src/dms/index.ts",
     "./fiscalization": "./src/fiscalization/index.ts",
     "./email": "./src/email/index.ts",
-    "./equipment": "./src/equipment/index.ts"
+    "./equipment": "./src/equipment/index.ts",
+    "./vin": "./src/vin/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
