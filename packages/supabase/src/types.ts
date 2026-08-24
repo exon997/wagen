@@ -1068,13 +1068,13 @@ export type Database = {
       vehicles: {
         Row: {
           created_at: string;
+          decode_data: Json | null;
+          decode_fetched_at: string | null;
           engine_label: string | null;
           id: string;
           make: string;
           model: string;
           model_year: number | null;
-          outvin_data: Json | null;
-          outvin_fetched_at: string | null;
           trim: string | null;
           updated_at: string;
           vin: string | null;
@@ -1082,13 +1082,13 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          decode_data?: Json | null;
+          decode_fetched_at?: string | null;
           engine_label?: string | null;
           id?: string;
           make: string;
           model: string;
           model_year?: number | null;
-          outvin_data?: Json | null;
-          outvin_fetched_at?: string | null;
           trim?: string | null;
           updated_at?: string;
           vin?: string | null;
@@ -1096,13 +1096,13 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          decode_data?: Json | null;
+          decode_fetched_at?: string | null;
           engine_label?: string | null;
           id?: string;
           make?: string;
           model?: string;
           model_year?: number | null;
-          outvin_data?: Json | null;
-          outvin_fetched_at?: string | null;
           trim?: string | null;
           updated_at?: string;
           vin?: string | null;
@@ -1165,7 +1165,7 @@ export type Database = {
       session_mode: 'photo' | 'listing';
       session_status: 'in_progress' | 'completed' | 'abandoned';
       translation_status: 'untranslated' | 'machine_translated' | 'approved';
-      vin_source: 'outvin' | 'iso_fallback' | 'manual';
+      vin_source: 'outvin' | 'iso_fallback' | 'manual' | 'vindata';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1328,7 +1328,7 @@ export const Constants = {
       session_mode: ['photo', 'listing'],
       session_status: ['in_progress', 'completed', 'abandoned'],
       translation_status: ['untranslated', 'machine_translated', 'approved'],
-      vin_source: ['outvin', 'iso_fallback', 'manual'],
+      vin_source: ['outvin', 'iso_fallback', 'manual', 'vindata'],
     },
   },
 } as const;
