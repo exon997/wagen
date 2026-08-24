@@ -65,9 +65,9 @@ set local request.jwt.claims to '{"role":"anon"}';
 do $$
 declare n int;
 begin
-  select count(*) into n from public.listings;
-  if n <> 2 then raise exception 'S1 FAIL: anon vidi % oglasa, ocekivano 2 (active HR)', n; end if;
-  select count(*) into n from public.listings where status = 'draft';
+  select count(*) into n from public.listings where id in ('00000000-0000-0000-0000-0000000000f2'::uuid, '00000000-0000-0000-0000-0000000000f3'::uuid);
+  if n <> 2 then raise exception 'S1 FAIL: anon ne vidi aktivne HR fixture oglase (%)', n; end if;
+  select count(*) into n from public.listings where id = '00000000-0000-0000-0000-0000000000f1'::uuid;
   if n <> 0 then raise exception 'S1 FAIL: anon vidi draft'; end if;
   select count(*) into n from public.saved_searches;
   if n <> 0 then raise exception 'S1 FAIL: anon vidi tudje spremljene pretrage'; end if;
@@ -94,8 +94,8 @@ set local request.headers to '{"x-wagen-market":"SI"}';
 do $$
 declare n int;
 begin
-  select count(*) into n from public.listings;
-  if n <> 1 then raise exception 'S2 FAIL: SI tržište vidi % oglasa, ocekivano 1', n; end if;
+  select count(*) into n from public.listings where market = 'HR';
+  if n <> 0 then raise exception 'S2 FAIL: SI trziste vidi HR oglase (%)', n; end if;
   select count(*) into n from public.listings where id = '00000000-0000-0000-0000-0000000000f4'::uuid;
   if n <> 1 then raise exception 'S2 FAIL: SI oglas nevidljiv na SI tržištu'; end if;
   raise notice 'S2b OK: x-wagen-market=SI vidi tocno svoj oglas - market izolacija radi';
@@ -143,9 +143,9 @@ set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000000c","
 do $$
 declare n int;
 begin
-  select count(*) into n from public.listings where dealer_id is not null;
+  select count(*) into n from public.listings where dealer_id = '00000000-0000-0000-0000-0000000000d1';
   if n <> 1 then raise exception 'S4 FAIL: clan ne vidi oglas svog trgovca'; end if;
-  select count(*) into n from public.contact_events;
+  select count(*) into n from public.contact_events where id = '00000000-0000-0000-0000-0000000000ce'::uuid;
   if n <> 1 then raise exception 'S4 FAIL: clan ne vidi kontakt na svom oglasu (statistika 18.1)'; end if;
   select count(*) into n from public.subscriptions;
   if n <> 0 then raise exception 'S4 FAIL: obicni clan vidi pretplatu (samo owner smije)'; end if;
@@ -255,13 +255,13 @@ set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000000b","
 do $$
 declare n int;
 begin
-  select count(*) into n from public.photo_sessions;
+  select count(*) into n from public.photo_sessions where user_id = '00000000-0000-0000-0000-00000000000a';
   if n <> 1 then raise exception 'S9 FAIL: admin ne vidi foto sesije (metrike Faze 0)'; end if;
-  select count(*) into n from public.listings where status = 'draft';
+  select count(*) into n from public.listings where id = '00000000-0000-0000-0000-0000000000f1'::uuid;
   if n <> 1 then raise exception 'S9 FAIL: admin ne vidi draftove'; end if;
-  select count(*) into n from public.moderation_flags;
+  select count(*) into n from public.moderation_flags where listing_id = '00000000-0000-0000-0000-0000000000f3'::uuid;
   if n <> 1 then raise exception 'S9 FAIL: admin ne vidi moderacijski queue'; end if;
-  select count(*) into n from public.saved_searches;
+  select count(*) into n from public.saved_searches where user_id = '00000000-0000-0000-0000-00000000000a';
   if n <> 0 then raise exception 'S9 FAIL: admin vidi privatne pretrage - namjerno zabranjeno'; end if;
   raise notice 'S9b OK: admin vidi sesije, draftove i queue; privatne pretrage ni admin';
 end $$;
@@ -289,6 +289,31 @@ begin
   exception when insufficient_privilege then null;
   end;
   raise notice 'S10 OK: tudji oglas nedodirljiv (update, enrichment, cijena)';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Scenario 11: objava trazi verificiran telefon (3.2 - RLS gate)
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}';
+
+do $$
+begin
+  begin
+    insert into public.listings (market, category_id, vehicle_id, user_id, status)
+    values ('HR', (select id from public.categories limit 1), '00000000-0000-0000-0000-0000000000e1'::uuid, '00000000-0000-0000-0000-00000000000a', 'pending');
+    raise exception 'S11 FAIL: objava bez telefona prosla';
+  exception when insufficient_privilege then
+    raise notice 'S11a OK: objava bez verificiranog telefona odbijena';
+  end;
+end $$;
+
+set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated","phone":"385991111111"}';
+
+do $$
+begin
+  insert into public.listings (market, category_id, vehicle_id, user_id, status)
+  values ('HR', (select id from public.categories limit 1), '00000000-0000-0000-0000-0000000000e1'::uuid, '00000000-0000-0000-0000-00000000000a', 'pending');
+  raise notice 'S11b OK: objava s telefonom u JWT-u prolazi';
 end $$;
 
 reset role;

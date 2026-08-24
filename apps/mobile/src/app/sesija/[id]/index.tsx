@@ -88,10 +88,23 @@ export default function SessionScreen() {
         </Text>
       )}
 
-      <View style={[styles.step, styles.stepDisabled]}>
-        <Text style={styles.stepLabel}>3 · {session.mode === 'photo' ? 'Preuzmi' : 'Objavi'}</Text>
-        <Text style={styles.muted}>Stize u bloku J</Text>
-      </View>
+      {session.photos.length > 0 && (
+        <Pressable
+          style={[styles.step, session.mode === 'listing' && styles.stepPrimary]}
+          onPress={() =>
+            router.push({ pathname: '/sesija/[id]/objavi', params: { id: session.id } })
+          }
+        >
+          <Text style={styles.stepLabel}>
+            3 · {session.mode === 'photo' ? 'Objavi i na wagen.hr' : 'Objavi oglas'}
+          </Text>
+          <Text style={styles.stepValue}>
+            {session.mode === 'photo'
+              ? 'Oglas je vec 90% gotov →'
+              : 'Cijena, kilometraza i objava →'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -106,6 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   stepDisabled: { opacity: 0.4 },
+  stepPrimary: { borderColor: colors.cyan },
   stepLabel: { color: colors.cyan, fontSize: 14, fontWeight: '600', marginBottom: 4 },
   stepValue: { color: colors.white, fontSize: 16 },
   muted: { color: colors.gray, fontSize: 14 },
