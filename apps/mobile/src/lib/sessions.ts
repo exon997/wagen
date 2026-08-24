@@ -20,6 +20,8 @@ export interface LocalPhoto {
   sortOrder: number;
   /** Putanja u Storageu nakon uploada - undefined dok ceka. */
   remotePath?: string;
+  /** Lokalni URI obradjene verzije (I2); original ostaje u uri. */
+  processedUri?: string;
 }
 
 export interface LocalSession {

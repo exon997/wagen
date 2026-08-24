@@ -21,6 +21,35 @@ export default function PhotosScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [session, setSession] = useState<LocalSession | null>(null);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState('');
+
+  // I2: segmentacija + blur pozadine na eksterijeru; original se cuva
+  const processAll = async () => {
+    if (!session || processing) return;
+    setProcessing(true);
+    try {
+      const { processSessionPhotos } = await import('@/lib/processing');
+      const { photos, result } = await processSessionPhotos(session, (done, total) =>
+        setProgress(`${done}/${total}`),
+      );
+      if (result.processed > 0) {
+        const updated = await updateSession(session.id, { photos });
+        setSession(updated);
+      }
+      if (result.processed === 0 && result.failed === 0) {
+        Alert.alert(
+          'Bez obrade',
+          'Uredjaj ne podrzava punu obradu ili su sve eksterijer fotke vec obradjene.',
+        );
+      } else if (result.failed > 0) {
+        Alert.alert('Djelomicno', `Obradjeno ${result.processed}, palo ${result.failed}.`);
+      }
+    } finally {
+      setProcessing(false);
+      setProgress('');
+    }
+  };
 
   // J1 (izvucen naprijed): spremanje u galeriju telefona - srce foto moda.
   // Album 'wagen' = fotke koje korisnik nosi na FB/Njuskalo (distribucija 4.4).
@@ -36,7 +65,7 @@ export default function PhotosScreen() {
       let saved = 0;
       for (const photo of session.photos) {
         try {
-          await MediaLibrary.saveToLibraryAsync(photo.uri);
+          await MediaLibrary.saveToLibraryAsync(photo.processedUri ?? photo.uri);
           saved += 1;
         } catch (e) {
           console.warn('Spremanje fotke nije uspjelo:', e);
@@ -91,13 +120,26 @@ export default function PhotosScreen() {
       <Stack.Screen options={{ title: `Fotografije (${session.photos.length})` }} />
 
       {session.photos.length > 0 && (
-        <Pressable
-          style={[styles.saveButton, saving && styles.saveButtonBusy]}
-          onPress={() => void saveAllToGallery()}
-          disabled={saving}
-        >
-          <Text style={styles.saveButtonText}>{saving ? 'Spremam…' : 'Spremi sve u galeriju'}</Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={[styles.processButton, processing && styles.saveButtonBusy]}
+            onPress={() => void processAll()}
+            disabled={processing}
+          >
+            <Text style={styles.processButtonText}>
+              {processing ? `Obradjujem… ${progress}` : 'Obradi fotografije'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.saveButton, saving && styles.saveButtonBusy]}
+            onPress={() => void saveAllToGallery()}
+            disabled={saving}
+          >
+            <Text style={styles.saveButtonText}>
+              {saving ? 'Spremam…' : 'Spremi sve u galeriju'}
+            </Text>
+          </Pressable>
+        </>
       )}
       <FlatList
         data={session.photos}
@@ -107,10 +149,15 @@ export default function PhotosScreen() {
         ListEmptyComponent={<Text style={styles.muted}>Jos nema fotografija.</Text>}
         renderItem={({ item, index }) => (
           <View style={styles.cell}>
-            <Image source={{ uri: item.uri }} style={styles.thumb} resizeMode="cover" />
+            <Image
+              source={{ uri: item.processedUri ?? item.uri }}
+              style={styles.thumb}
+              resizeMode="cover"
+            />
             <View style={styles.meta}>
               <Text style={styles.angle}>
                 {item.angleCategory ? (ANGLE_LABELS[item.angleCategory] ?? '') : '—'}
+                {item.processedUri ? ' · obradjeno ✨' : ''}
               </Text>
               <Text style={styles.cloud}>{item.remotePath ? '☁ u oblaku' : '⌛ ceka upload'}</Text>
             </View>
@@ -157,5 +204,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   saveButtonBusy: { opacity: 0.5 },
+  processButton: {
+    borderColor: colors.cyan,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  processButtonText: { color: colors.cyan, fontWeight: '700', fontSize: 15 },
   saveButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
 });
