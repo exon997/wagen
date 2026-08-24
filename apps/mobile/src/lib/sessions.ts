@@ -10,7 +10,7 @@ import * as Crypto from 'expo-crypto';
 /** Ulazni mod odredjuje default izlaza (4.2). Zrcali public.session_mode. */
 export type SessionMode = 'photo' | 'listing';
 export type SessionStatus = 'in_progress' | 'completed' | 'abandoned';
-export type PhotoAngle = 'exterior' | 'interior' | 'detail';
+export type PhotoAngle = 'exterior' | 'interior' | 'detail' | 'trunk' | 'feature' | 'mechanical';
 
 export interface LocalPhoto {
   id: string;

@@ -10,6 +10,9 @@ const ANGLE_LABELS: Record<string, string> = {
   exterior: 'Eksterijer',
   interior: 'Interijer',
   detail: 'Detalji',
+  trunk: 'Prtljaznik',
+  feature: 'Znacajke i oprema',
+  mechanical: 'Mehanika',
 };
 
 /**

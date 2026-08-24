@@ -24,6 +24,12 @@ export interface EquipmentCodeInput {
 export interface EquipmentTranslation {
   nameEn: string;
   nameHr: string;
+  /** Predloziti fotografiranje ove znacajke? (v1.1 mehanizam) */
+  photoSuggest: boolean;
+  /** Prodajna vrijednost 1-5 (null kad se ne predlaze). */
+  photoRank: number | null;
+  /** Kratka uputa za kadar (null kad se ne predlaze). */
+  photoHint: string | null;
 }
 
 export interface EquipmentTranslator {
@@ -33,6 +39,18 @@ export interface EquipmentTranslator {
 const translationSchema = z.object({
   name_en: z.string().describe('English name of the equipment item'),
   name_hr: z.string().describe('Croatian translation, automotive terminology'),
+  photo_suggest: z.boolean().describe('Should the app suggest a dedicated photo of this feature?'),
+  photo_rank: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .nullable()
+    .describe('Selling value 1-5 when suggested, null otherwise'),
+  photo_hint: z
+    .string()
+    .nullable()
+    .describe('Short Croatian instruction for the shot, null when not suggested'),
 });
 
 const SYSTEM_PROMPT = `You translate vehicle factory equipment/option names into Croatian for a car marketplace.
@@ -40,7 +58,10 @@ Rules:
 - Use established Croatian automotive terminology (as used by dealers and car magazines).
 - Keep proper nouns and brand names untranslated (Harman Kardon, LED, USB, Head-Up).
 - Be concise - these are labels on a listing page, not sentences.
-- If only a code is given and you are not confident what it means for that manufacturer, use the code itself as name_en and give a literal, cautious name_hr.`;
+- If only a code is given and you are not confident what it means for that manufacturer, use the code itself as name_en and give a literal, cautious name_hr.
+
+Also classify for photo suggestions. The guided flow ALREADY covers 16 standard shots: 6 exterior angles, front-left wheel (rims!), views through driver and passenger doors (seats, dash, steering wheel), instrument cluster, center dash (main display, ventilation), center console (switches), rear bench, driver POV, open trunk.
+photo_suggest=true ONLY if the feature is (1) visually demonstrable, (2) NOT already visible in the standard shots, (3) a selling point buyers care about. Administrative codes (emission norms, language versions, service intervals), invisible software/services, and anything covered by standard shots get false. When true, give photo_rank (5 = top selling point) and a short Croatian photo_hint (max 8 words).`;
 
 export class AnthropicEquipmentTranslator implements EquipmentTranslator {
   private readonly client: Anthropic;
@@ -71,7 +92,13 @@ export class AnthropicEquipmentTranslator implements EquipmentTranslator {
         `Prijevod koda ${input.manufacturer}/${input.code} nije parsiran (stop: ${response.stop_reason})`,
       );
     }
-    return { nameEn: parsed.name_en, nameHr: parsed.name_hr };
+    return {
+      nameEn: parsed.name_en,
+      nameHr: parsed.name_hr,
+      photoSuggest: parsed.photo_suggest,
+      photoRank: parsed.photo_rank,
+      photoHint: parsed.photo_hint,
+    };
   }
 }
 
@@ -83,7 +110,10 @@ export class MockEquipmentTranslator implements EquipmentTranslator {
     this.calls.push(input);
     return Promise.resolve({
       nameEn: input.nameEn ?? input.code,
-      nameHr: `HR:${input.nameEn ?? input.code}`,
+      nameHr: 'HR:' + (input.nameEn ?? input.code),
+      photoSuggest: false,
+      photoRank: null,
+      photoHint: null,
     });
   }
 }
@@ -100,6 +130,9 @@ export interface EquipmentCodeRow {
   nameEn: string | null;
   nameHr: string | null;
   translationStatus: 'untranslated' | 'machine_translated' | 'approved';
+  photoSuggest?: boolean;
+  photoRank?: number | null;
+  photoHint?: string | null;
 }
 
 export interface EquipmentCodeRepository {
@@ -135,6 +168,9 @@ export async function ensureEquipmentCode(
     nameEn: translation.nameEn,
     nameHr: translation.nameHr,
     translationStatus: 'machine_translated',
+    photoSuggest: translation.photoSuggest,
+    photoRank: translation.photoRank,
+    photoHint: translation.photoHint,
   };
   await repo.saveMachineTranslation(row);
   return row;

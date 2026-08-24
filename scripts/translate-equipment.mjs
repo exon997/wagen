@@ -80,6 +80,9 @@ const repo = {
           name_en: row.nameEn,
           name_hr: row.nameHr,
           translation_status: 'machine_translated',
+          photo_suggest: row.photoSuggest ?? false,
+          photo_rank: row.photoRank ?? null,
+          photo_hint: row.photoHint ?? null,
         }),
       },
     );

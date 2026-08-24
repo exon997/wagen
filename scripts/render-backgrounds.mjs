@@ -10,7 +10,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-const OUT = process.argv[2] ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'mobile', 'assets', 'backgrounds');
+const OUT =
+  process.argv[2] ??
+  path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'apps',
+    'mobile',
+    'assets',
+    'backgrounds',
+  );
 const W = 2400;
 const H = 1800; // 4:3 kao nase fotke
 
@@ -20,7 +29,7 @@ const TILE = 1.15;
 
 // --- mini 3D -> 2D ---------------------------------------------------------
 function camera(pos, target, fovDeg) {
-  const f = (H / 2) / Math.tan(((fovDeg * Math.PI) / 180) / 2);
+  const f = H / 2 / Math.tan((fovDeg * Math.PI) / 180 / 2);
   const fw = norm(sub(target, pos)); // forward
   const rt = norm(cross(fw, [0, 1, 0]));
   const up = cross(rt, fw);
@@ -28,8 +37,15 @@ function camera(pos, target, fovDeg) {
 }
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
+const cross = (a, b) => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const norm = (a) => {
+  const l = Math.hypot(...a);
+  return [a[0] / l, a[1] / l, a[2] / l];
+};
 
 function project(cam, p) {
   const rel = sub(p, cam.pos);
@@ -50,7 +66,10 @@ function poly(cam, points, fill, extra = '') {
 // --- scena -----------------------------------------------------------------
 function renderScene(cam) {
   const { w, d, h } = ROOM;
-  const x0 = -w / 2, x1 = w / 2, z0 = 0, z1 = d;
+  const x0 = -w / 2,
+    x1 = w / 2,
+    z0 = 0,
+    z1 = d;
   let svg = '';
 
   // Pozadinski gradienti (zid svjetliji gore, blagi pad prema podu)
@@ -83,14 +102,60 @@ function renderScene(cam) {
   </defs>`;
 
   // Strop, zidovi (redoslijed: daleko -> blizu)
-  svg += poly(cam, [[x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0]], 'url(#ceil)');
-  svg += poly(cam, [[x0, 0, z1], [x1, 0, z1], [x1, h, z1], [x0, h, z1]], 'url(#wall)');
-  svg += poly(cam, [[x0, 0, z0], [x0, 0, z1], [x0, h, z1], [x0, h, z0]], 'url(#wallL)');
-  svg += poly(cam, [[x1, 0, z1], [x1, 0, z0], [x1, h, z0], [x1, h, z1]], 'url(#wallR)');
+  svg += poly(
+    cam,
+    [
+      [x0, h, z1],
+      [x1, h, z1],
+      [x1, h, z0],
+      [x0, h, z0],
+    ],
+    'url(#ceil)',
+  );
+  svg += poly(
+    cam,
+    [
+      [x0, 0, z1],
+      [x1, 0, z1],
+      [x1, h, z1],
+      [x0, h, z1],
+    ],
+    'url(#wall)',
+  );
+  svg += poly(
+    cam,
+    [
+      [x0, 0, z0],
+      [x0, 0, z1],
+      [x0, h, z1],
+      [x0, h, z0],
+    ],
+    'url(#wallL)',
+  );
+  svg += poly(
+    cam,
+    [
+      [x1, 0, z1],
+      [x1, 0, z0],
+      [x1, h, z0],
+      [x1, h, z1],
+    ],
+    'url(#wallR)',
+  );
 
   // wagen potpis: tanka cyan LED linija na straznjem zidu (h*0.62), preko cijele sirine
   const ly = h * 0.62;
-  svg += poly(cam, [[x0 + 0.6, ly - 0.025, z1 - 0.01], [x1 - 0.6, ly - 0.025, z1 - 0.01], [x1 - 0.6, ly + 0.025, z1 - 0.01], [x0 + 0.6, ly + 0.025, z1 - 0.01]], '#8feef5', 'opacity="0.9"');
+  svg += poly(
+    cam,
+    [
+      [x0 + 0.6, ly - 0.025, z1 - 0.01],
+      [x1 - 0.6, ly - 0.025, z1 - 0.01],
+      [x1 - 0.6, ly + 0.025, z1 - 0.01],
+      [x0 + 0.6, ly + 0.025, z1 - 0.01],
+    ],
+    '#8feef5',
+    'opacity="0.9"',
+  );
   // glow oko linije
   const gl = project(cam, [0, ly, z1 - 0.01]);
   const gr = project(cam, [x1 - 0.6, ly, z1 - 0.01]);
@@ -102,18 +167,40 @@ function renderScene(cam) {
   // Pod: mat tamnosive plocice s fugama (fuga = tamniji rub kroz stroke)
   for (let zi = 0; zi * TILE < d; zi++) {
     for (let xi = 0; (xi + 1) * TILE <= w + 0.001; xi++) {
-      const tx0 = x0 + xi * TILE, tx1 = Math.min(x0 + (xi + 1) * TILE, x1);
-      const tz0 = z0 + zi * TILE, tz1 = Math.min(z0 + (zi + 1) * TILE, d);
+      const tx0 = x0 + xi * TILE,
+        tx1 = Math.min(x0 + (xi + 1) * TILE, x1);
+      const tz0 = z0 + zi * TILE,
+        tz1 = Math.min(z0 + (zi + 1) * TILE, d);
       // blaga varijacija tona po plocici (deterministicka)
       const v = ((xi * 7 + zi * 13) % 5) - 2;
       const base = 74 + v; // ~#4a
       const fill = `rgb(${base},${base + 1},${base + 2})`;
-      svg += poly(cam, [[tx0, 0, tz0], [tx1, 0, tz0], [tx1, 0, tz1], [tx0, 0, tz1]], fill, 'stroke="#3a3b3c" stroke-width="3"');
+      svg += poly(
+        cam,
+        [
+          [tx0, 0, tz0],
+          [tx1, 0, tz0],
+          [tx1, 0, tz1],
+          [tx0, 0, tz1],
+        ],
+        fill,
+        'stroke="#3a3b3c" stroke-width="3"',
+      );
     }
   }
 
   // Kontakt zid-pod: tamna traka uzduz straznjeg zida (mekani AO dojam)
-  svg += poly(cam, [[x0, 0, z1], [x1, 0, z1], [x1, 0, z1 - 0.45], [x0, 0, z1 - 0.45]], '#3f4041', 'opacity="0.35"');
+  svg += poly(
+    cam,
+    [
+      [x0, 0, z1],
+      [x1, 0, z1],
+      [x1, 0, z1 - 0.45],
+      [x0, 0, z1 - 0.45],
+    ],
+    '#3f4041',
+    'opacity="0.35"',
+  );
 
   // Vinjeta preko svega
   svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#vignette)"/>`;
@@ -124,10 +211,10 @@ function renderScene(cam) {
 // Auto ce stajati oko [0, 0, 5.2] (sredina sobe po dubini). Kamera 1.4m.
 const CAR = [0, 0.7, 5.6];
 const ANGLES = {
-  'front-left':  { pos: [-4.6, 1.4, 1.2], fov: 54 },
-  'side':        { pos: [-6.4, 1.4, 5.6], fov: 56 },
-  'rear-right':  { pos: [4.6, 1.4, 1.2],  fov: 54 },
-  'rear':        { pos: [0, 1.4, 0.9],    fov: 54 },
+  'front-left': { pos: [-4.6, 1.4, 1.2], fov: 54 },
+  side: { pos: [-6.4, 1.4, 5.6], fov: 56 },
+  'rear-right': { pos: [4.6, 1.4, 1.2], fov: 54 },
+  rear: { pos: [0, 1.4, 0.9], fov: 54 },
 };
 
 import fs from 'node:fs';

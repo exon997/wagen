@@ -286,6 +286,9 @@ export type Database = {
           manufacturer: string;
           name_en: string | null;
           name_hr: string | null;
+          photo_hint: string | null;
+          photo_rank: number | null;
+          photo_suggest: boolean;
           translation_status: Database['public']['Enums']['translation_status'];
           updated_at: string;
         };
@@ -296,6 +299,9 @@ export type Database = {
           manufacturer: string;
           name_en?: string | null;
           name_hr?: string | null;
+          photo_hint?: string | null;
+          photo_rank?: number | null;
+          photo_suggest?: boolean;
           translation_status?: Database['public']['Enums']['translation_status'];
           updated_at?: string;
         };
@@ -306,6 +312,9 @@ export type Database = {
           manufacturer?: string;
           name_en?: string | null;
           name_hr?: string | null;
+          photo_hint?: string | null;
+          photo_rank?: number | null;
+          photo_suggest?: boolean;
           translation_status?: Database['public']['Enums']['translation_status'];
           updated_at?: string;
         };
@@ -1160,7 +1169,7 @@ export type Database = {
       moderation_source: 'ai_instant' | 'ai_sweep' | 'manual' | 'user_report';
       moderation_status: 'open' | 'resolved' | 'dismissed';
       notification_level: 'instant' | 'daily' | 'weekly';
-      photo_angle: 'exterior' | 'interior' | 'detail';
+      photo_angle: 'exterior' | 'interior' | 'detail' | 'trunk' | 'feature' | 'mechanical';
       review_status: 'published' | 'flagged' | 'removed';
       session_mode: 'photo' | 'listing';
       session_status: 'in_progress' | 'completed' | 'abandoned';
@@ -1323,7 +1332,7 @@ export const Constants = {
       moderation_source: ['ai_instant', 'ai_sweep', 'manual', 'user_report'],
       moderation_status: ['open', 'resolved', 'dismissed'],
       notification_level: ['instant', 'daily', 'weekly'],
-      photo_angle: ['exterior', 'interior', 'detail'],
+      photo_angle: ['exterior', 'interior', 'detail', 'trunk', 'feature', 'mechanical'],
       review_status: ['published', 'flagged', 'removed'],
       session_mode: ['photo', 'listing'],
       session_status: ['in_progress', 'completed', 'abandoned'],

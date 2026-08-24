@@ -160,7 +160,17 @@ export default function CameraScreen() {
         <View pointerEvents="none" style={styles.overlay}>
           <View style={styles.silhouette} />
           <Text style={styles.overlayLabel}>
-            {shot ? `${shot.title} · ${shot.hint}` : ''}
+            {shot
+              ? shot.section.toUpperCase() +
+                ' ' +
+                (stepIndex + 1) +
+                '/' +
+                GUIDED_SHOTS.length +
+                ' · ' +
+                shot.title +
+                ' — ' +
+                shot.hint
+              : ''}
           </Text>
         </View>
       </View>
