@@ -87,7 +87,10 @@ Deno.serve(async (req) => {
                 .from('equipment_codes')
                 .select('id, code')
                 .eq('manufacturer', decoded.make)
-                .in('code', withCodes.map((e) => e.code));
+                .in(
+                  'code',
+                  withCodes.map((e) => e.code),
+                );
               if (codes && codes.length > 0) {
                 await service.from('vehicle_equipment').upsert(
                   codes.map((c) => ({ vehicle_id: vehicle.id, equipment_code_id: c.id })),
