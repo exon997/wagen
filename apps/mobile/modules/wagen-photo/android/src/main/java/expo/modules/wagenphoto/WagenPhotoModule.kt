@@ -82,6 +82,47 @@ class WagenPhotoModule : Module() {
     // 'blur_only' (degradacija - blago zamucenje cijele pozadine nije
     // moguce bez maske, pa blur_only ovdje znaci: bez obrade pozadine).
     // Vraca file:// URI obradjene fotografije (JPEG).
+    // I4: zamucivanje zadanih regija (registarske tablice) - radi na SVIM
+    // uredjajima (ne trazi segmentaciju). rects: lista {left,top,width,height}
+    // u pikselima izvorne slike.
+    AsyncFunction("blurRegions") { uriString: String, rects: List<Map<String, Double>>, promise: Promise ->
+      val context = appContext.reactContext
+        ?: return@AsyncFunction promise.reject(CodedException("NO_CONTEXT", "Nema konteksta", null))
+      try {
+        val source = BitmapFactory.decodeFile(Uri.parse(uriString).path)
+          ?: return@AsyncFunction promise.reject(
+            CodedException("DECODE_FAILED", "Fotografija se ne moze ucitati", null)
+          )
+        val mutable = source.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutable)
+        for (rect in rects) {
+          val left = (rect["left"] ?: 0.0).toInt().coerceIn(0, source.width - 1)
+          val top = (rect["top"] ?: 0.0).toInt().coerceIn(0, source.height - 1)
+          val w = (rect["width"] ?: 0.0).toInt().coerceAtMost(source.width - left)
+          val h = (rect["height"] ?: 0.0).toInt().coerceAtMost(source.height - top)
+          if (w <= 4 || h <= 4) continue
+          // margina oko tablice da blur pokrije rub
+          val pad = (h * 0.25).toInt()
+          val cl = (left - pad).coerceAtLeast(0)
+          val ct = (top - pad).coerceAtLeast(0)
+          val cw = (w + 2 * pad).coerceAtMost(source.width - cl)
+          val ch = (h + 2 * pad).coerceAtMost(source.height - ct)
+          val region = Bitmap.createBitmap(mutable, cl, ct, cw, ch)
+          val blurredRegion = blurBitmap(context, region, 25f)
+          // dvostruki prolaz za jaci efekt na malim regijama
+          val doubleBlurred = blurBitmap(context, blurredRegion, 25f)
+          canvas.drawBitmap(doubleBlurred, cl.toFloat(), ct.toFloat(), null)
+        }
+        val outFile = File.createTempFile("wagen-plates-", ".jpg", context.cacheDir)
+        FileOutputStream(outFile).use { fos ->
+          mutable.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+        }
+        promise.resolve("file://${outFile.absolutePath}")
+      } catch (e: Throwable) {
+        promise.reject(CodedException("BLUR_REGIONS_FAILED", e.message ?: "Blur pao", e))
+      }
+    }
+
     AsyncFunction("processPhoto") { uriString: String, promise: Promise ->
       val context = appContext.reactContext
         ?: return@AsyncFunction promise.reject(CodedException("NO_CONTEXT", "Nema konteksta", null))
