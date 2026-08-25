@@ -42,46 +42,20 @@ export default function VinScreen() {
 
   const decoded = manualVin.length >= 5 ? decodeVinLocally(manualVin) : null;
 
+  // Flow nikad ne staje (3.2): VIN se spremi i odmah natrag - decode se
+  // zagrije ovdje, a ekran sesije dijeli isti in-flight poziv i pokazuje
+  // zivo stanje (Prepoznajem… -> ✓ / nije u bazi / greska). Provjera
+  // varijanti na serveru zna trajati 15+ s - zato nema cekanja ni timeouta.
   const accept = async (vin: string | null) => {
     if (!id) return;
-    let updated = await updateSession(id, { vin });
+    const updated = await updateSession(id, {
+      vin,
+      vinLookupMiss: false,
+      vehicleInfo: null,
+      vehicleId: null,
+    });
     void syncSession(updated);
-    if (vin) {
-      // E2: server decode (cache + vindata) - timeout ne blokira flow, ali
-      // razlog neuspjeha se UVIJEK pokazuje (terenska lekcija iz builda #18)
-      const outcome = await Promise.race([
-        decodeVinRemote(vin),
-        new Promise<{ info: null; error: string }>((resolve) =>
-          setTimeout(() => resolve({ info: null, error: 'isteklo vrijeme (15 s)' }), 15000),
-        ),
-      ]);
-      if (outcome.info) {
-        const { vehicleId, vin: canonicalVin, correctedFrom, ...vehicleInfo } = outcome.info;
-        updated = await updateSession(id, {
-          vehicleInfo,
-          vehicleId,
-          vinLookupMiss: false,
-          ...(canonicalVin && canonicalVin !== vin ? { vin: canonicalVin } : {}),
-        });
-        if (correctedFrom && canonicalVin) {
-          Alert.alert(
-            'VIN ispravljen',
-            `Sken je zamijenio slican znak (npr. 2 i Z). Ispravan VIN:\n${canonicalVin}\n\nPrepoznato: ${vehicleInfo.make} ${vehicleInfo.model} - provjeri da odgovara vozilu.`,
-          );
-        }
-      } else if ('miss' in outcome && outcome.miss) {
-        updated = await updateSession(id, { vinLookupMiss: true });
-        Alert.alert(
-          'VIN nije u bazi podataka',
-          'Dobavljac nema podatke za ovaj VIN - cesto kod starijih vozila. Nista strasno: podatke o vozilu unijet ces rucno pri objavi.',
-        );
-      } else if (outcome.error) {
-        Alert.alert(
-          'Vozilo jos nije prepoznato',
-          `Nastavljamo bez podataka - pokusat cu ponovno automatski.\n\nDetalj: ${outcome.error}`,
-        );
-      }
-    }
+    if (vin) void decodeVinRemote(vin);
     router.back();
   };
 

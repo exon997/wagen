@@ -51,7 +51,13 @@ async function doDecode(vin: string): Promise<DecodeOutcome> {
     } = await supabase.auth.getSession();
     if (!session) return fail('sesija nije uspostavljena (anonimna prijava nije prosla)');
 
-    const { data, error } = await supabase.functions.invoke('vin-decode', { body: { vin } });
+    // Provjera OCR varijanti na serveru traje i 15+ s - velikodusan rok,
+    // ali konacan (UI stanje "Prepoznajem…" ne smije visjeti zauvijek)
+    const invocation = supabase.functions.invoke('vin-decode', { body: { vin } });
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('isteklo vrijeme (45 s)')), 45000),
+    );
+    const { data, error } = await Promise.race([invocation, timeout]);
     if (error) {
       const status = (error as { context?: { status?: number } }).context?.status;
       return fail(`${status ? `HTTP ${status}: ` : ''}${error.message || String(error)}`);

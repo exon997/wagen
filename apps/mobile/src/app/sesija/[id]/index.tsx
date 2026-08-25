@@ -23,6 +23,7 @@ export default function SessionScreen() {
   const [session, setSession] = useState<LocalSession | null>(null);
   const [capability, setCapability] = useState<ProcessingCapability | null>(null);
   const [decodeError, setDecodeError] = useState<string | null>(null);
+  const [decodePending, setDecodePending] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,7 +33,9 @@ export default function SessionScreen() {
         // Samoizljecenje: VIN postoji, a decode nije uspio (timeout/offline).
         // Promasaj dobavljaca (miss) se pamti - njega ne ponavljamo.
         if (s?.vin && !s.vehicleId && !s.vinLookupMiss) {
+          setDecodePending(true);
           const { info, error, miss } = await decodeVinRemote(s.vin);
+          setDecodePending(false);
           if (info) {
             const { vehicleId, vin: canonicalVin, correctedFrom, ...vehicleInfo } = info;
             const updated = await updateSession(id, {
@@ -89,10 +92,13 @@ export default function SessionScreen() {
       <Pressable style={styles.step} onPress={() => go('vin')}>
         <Text style={styles.stepLabel}>1 · Identifikacija</Text>
         <Text style={styles.stepValue}>{vehicleLine}</Text>
-        {!session.vehicleId && decodeError && (
+        {!session.vehicleId && decodePending && (
+          <Text style={styles.decodePending}>Prepoznajem vozilo… (do pola minute)</Text>
+        )}
+        {!session.vehicleId && !decodePending && decodeError && (
           <Text style={styles.decodeError}>Prepoznavanje nije uspjelo: {decodeError}</Text>
         )}
-        {!session.vehicleId && !decodeError && session.vinLookupMiss && (
+        {!session.vehicleId && !decodePending && !decodeError && session.vinLookupMiss && (
           <Text style={styles.decodeMiss}>
             VIN nije u bazi dobavljaca - podaci o vozilu se unose rucno pri objavi
           </Text>
@@ -171,4 +177,5 @@ const styles = StyleSheet.create({
   capability: { color: colors.gray, fontSize: 12, marginTop: 16 },
   decodeError: { color: '#ff9c9c', fontSize: 12, marginTop: 6 },
   decodeMiss: { color: colors.gray, fontSize: 12, marginTop: 6 },
+  decodePending: { color: colors.cyan, fontSize: 12, marginTop: 6 },
 });
