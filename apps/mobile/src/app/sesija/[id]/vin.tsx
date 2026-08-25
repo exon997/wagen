@@ -52,7 +52,10 @@ export default function VinScreen() {
         decodeVinRemote(vin),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
       ]);
-      if (info) updated = await updateSession(id, { vehicleInfo: info });
+      if (info) {
+        const { vehicleId, ...vehicleInfo } = info;
+        updated = await updateSession(id, { vehicleInfo, vehicleId });
+      }
     }
     router.back();
   };

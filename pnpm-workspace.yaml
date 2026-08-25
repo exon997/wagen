@@ -23,3 +23,9 @@ strictPeerDependencies: false
 # (@unrs/resolver-binding-win32-x64-msvc), pa postinstall skripta nije potrebna.
 allowBuilds:
   unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - '@expo/image-utils@0.11.5'
+  - '@expo/require-utils@57.0.5'
+  - expo-asset@57.0.14
+  - expo-constants@57.0.14

@@ -1,16 +1,21 @@
 /**
- * I2/I4 orkestracija: obrada fotografija sesije kroz wagen-photo modul.
+ * I2/I4 orkestracija: obrada fotografija po postavkama iz Pripreme (2. korak
+ * flowa): pozadina Original/Diskretna(blur)/Studio(predlozak), sakrivanje
+ * registarskih oznaka, automatska dorada. Original se uvijek cuva.
  *
- * Puni pipeline ('full'):     tablica blur + segmentacija subjekta s
- *                             zamucenom pozadinom - samo eksterijer (4.4).
- * Degradacija ('blur_only'):  SAMO tablica blur (radi svugdje gdje i OCR) -
- *                             stariji uredjaji dobivaju stvarnu vrijednost,
- *                             ne prazan gumb.
- * Original se cuva - obrada pise novu datoteku (processedUri po fotki).
+ * Studio predlosci postoje za 6 eksterijernih kadrova cijelog auta;
+ * ostali kadrovi u studio modu dobivaju blur (kotac izbliza i interijer
+ * nemaju smislen predlozak).
  */
+import { Asset } from 'expo-asset';
 import { detectProcessingCapability } from '@/lib/capabilities';
 import { findPlateRegions } from '@/lib/plates';
-import type { LocalPhoto, LocalSession } from '@/lib/sessions';
+import {
+  DEFAULT_LOOK,
+  type LocalPhoto,
+  type LocalSession,
+  type LookSettings,
+} from '@/lib/sessions';
 
 export interface ProcessResult {
   processed: number;
@@ -18,30 +23,64 @@ export interface ProcessResult {
   failed: number;
 }
 
-async function processOne(uri: string, capability: 'full' | 'blur_only'): Promise<string | null> {
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const TEMPLATE_MODULES: Record<string, number> = {
+  'ext-front-left': require('../../assets/backgrounds/ext-front-left.jpg') as number,
+  'ext-front': require('../../assets/backgrounds/ext-front.jpg') as number,
+  'ext-front-right': require('../../assets/backgrounds/ext-front-right.jpg') as number,
+  'ext-rear-right': require('../../assets/backgrounds/ext-rear-right.jpg') as number,
+  'ext-rear': require('../../assets/backgrounds/ext-rear.jpg') as number,
+  'ext-rear-left': require('../../assets/backgrounds/ext-rear-left.jpg') as number,
+};
+
+function shotKeyFromUri(uri: string): string | null {
+  const match = /\/([a-z-]+)-[0-9a-f]{8}\.jpg$/.exec(uri);
+  return match?.[1] ?? null;
+}
+
+async function templateUriFor(photo: LocalPhoto): Promise<string | null> {
+  const key = shotKeyFromUri(photo.uri);
+  if (!key || !(key in TEMPLATE_MODULES)) return null;
+  const asset = Asset.fromModule(TEMPLATE_MODULES[key]!);
+  await asset.downloadAsync();
+  return asset.localUri ?? asset.uri;
+}
+
+async function processOne(
+  photo: LocalPhoto,
+  look: LookSettings,
+  capability: 'full' | 'blur_only',
+): Promise<string | null> {
   const { WagenPhoto } = await import('../../modules/wagen-photo');
 
-  // I4: tablica blur na ORIGINALU (koordinate iz OCR-a vrijede za original;
-  // kompozit segmentacije cuva geometriju pa redoslijed ne mijenja rezultat,
-  // ali blur prije segmentacije znaci da je tablica mutna i u masci subjekta)
-  let workingUri = uri;
-  try {
-    const plates = await findPlateRegions(uri);
-    if (plates.length > 0) {
-      workingUri = await WagenPhoto.blurRegions(uri, plates);
+  // I4: sakrij registarske oznake (radi na svim uredjajima)
+  let workingUri = photo.uri;
+  if (look.hidePlates) {
+    try {
+      const plates = await findPlateRegions(photo.uri);
+      if (plates.length > 0) {
+        workingUri = await WagenPhoto.blurRegions(photo.uri, plates);
+      }
+    } catch (e) {
+      console.warn('Detekcija tablica preskocena:', e);
     }
-  } catch (e) {
-    console.warn('Detekcija tablica preskocena:', e);
   }
 
-  if (capability === 'blur_only') {
-    // Bez segmentacije: vrijednost je samo tablica blur; ako tablice nema,
-    // nema ni obrade (null = fotka ostaje original)
-    return workingUri === uri ? null : workingUri;
+  // Pozadina se obradjuje samo na eksterijeru cijelog auta
+  const isCarShot = photo.angleCategory === 'exterior';
+  const wantsBackground = look.background !== 'original' && isCarShot && capability === 'full';
+
+  if (!wantsBackground) {
+    if (!look.enhance && workingUri === photo.uri) return null; // nista za raditi
+    return WagenPhoto.processPhoto(workingUri, { mode: 'none', enhance: look.enhance });
   }
 
-  // I2: segmentacija + blur pozadine
-  return WagenPhoto.processPhoto(workingUri);
+  const templateUri = look.background === 'studio' ? await templateUriFor(photo) : null;
+  return WagenPhoto.processPhoto(workingUri, {
+    mode: templateUri ? 'template' : 'blur',
+    ...(templateUri ? { templateUri } : {}),
+    enhance: look.enhance,
+  });
 }
 
 export async function processSessionPhotos(
@@ -56,7 +95,8 @@ export async function processSessionPhotos(
     };
   }
 
-  const targets = session.photos.filter((p) => p.angleCategory === 'exterior' && !p.processedUri);
+  const look = session.look ?? DEFAULT_LOOK;
+  const targets = session.photos.filter((p) => !p.processedUri);
   const result: ProcessResult = {
     processed: 0,
     skipped: session.photos.length - targets.length,
@@ -67,7 +107,7 @@ export async function processSessionPhotos(
   let done = 0;
   for (const photo of targets) {
     try {
-      const processedUri = await processOne(photo.uri, capability);
+      const processedUri = await processOne(photo, look, capability);
       if (processedUri) {
         const idx = photos.findIndex((p) => p.id === photo.id);
         if (idx >= 0) photos[idx] = { ...photos[idx]!, processedUri };

@@ -7,17 +7,27 @@
 import { getSupabase } from '@/lib/supabase';
 import type { VehicleInfo } from '@/lib/sessions';
 
-export async function decodeVinRemote(vin: string): Promise<VehicleInfo | null> {
+export interface RemoteDecode extends VehicleInfo {
+  vehicleId: string;
+}
+
+export async function decodeVinRemote(vin: string): Promise<RemoteDecode | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data, error } = await supabase.functions.invoke('vin-decode', { body: { vin } });
     if (error) return null;
     const vehicle = (data as { vehicle?: Record<string, unknown> | null } | null)?.vehicle;
-    if (!vehicle || typeof vehicle['make'] !== 'string' || typeof vehicle['model'] !== 'string') {
+    if (
+      !vehicle ||
+      typeof vehicle['id'] !== 'string' ||
+      typeof vehicle['make'] !== 'string' ||
+      typeof vehicle['model'] !== 'string'
+    ) {
       return null;
     }
     return {
+      vehicleId: vehicle['id'],
       make: vehicle['make'],
       model: vehicle['model'],
       engineLabel: typeof vehicle['engine_label'] === 'string' ? vehicle['engine_label'] : null,

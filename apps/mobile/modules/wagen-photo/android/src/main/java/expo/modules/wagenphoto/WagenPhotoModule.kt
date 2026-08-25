@@ -123,7 +123,7 @@ class WagenPhotoModule : Module() {
       }
     }
 
-    AsyncFunction("processPhoto") { uriString: String, promise: Promise ->
+    AsyncFunction("processPhoto") { uriString: String, options: Map<String, Any?>, promise: Promise ->
       val context = appContext.reactContext
         ?: return@AsyncFunction promise.reject(CodedException("NO_CONTEXT", "Nema konteksta", null))
       try {
@@ -131,6 +131,19 @@ class WagenPhotoModule : Module() {
           ?: return@AsyncFunction promise.reject(
             CodedException("DECODE_FAILED", "Fotografija se ne moze ucitati", null)
           )
+
+        val mode = options["mode"] as? String ?: "blur"
+        val templatePath = options["templateUri"] as? String
+        val enhance = options["enhance"] as? Boolean ?: false
+
+        // mode 'none': bez pozadinske obrade - samo (opcionalna) dorada
+        if (mode == "none") {
+          val output = if (enhance) enhanceBitmap(source) else source
+          val outFile = File.createTempFile("wagen-processed-", ".jpg", context.cacheDir)
+          FileOutputStream(outFile).use { fos -> output.compress(Bitmap.CompressFormat.JPEG, 90, fos) }
+          promise.resolve("file://" + outFile.absolutePath)
+          return@AsyncFunction
+        }
 
         val client = SubjectSegmentation.getClient(
           SubjectSegmenterOptions.Builder()
@@ -146,10 +159,15 @@ class WagenPhotoModule : Module() {
                   CodedException("NO_MASK", "Segmentacija nije vratila masku", null)
                 )
 
-              // 1) Zamucena kopija cijele slike (pozadina)
-              val blurred = blurBitmap(context, source, 22f)
-              // 2) Subjekt preko zamucene pozadine po confidence maski
-              val output = composite(source, blurred, mask, source.width, source.height)
+              // Pozadina: predlozak (studio) ili zamucena kopija originala
+              val background = if (mode == "template" && templatePath != null) {
+                loadTemplateScaled(templatePath, source.width, source.height)
+                  ?: blurBitmap(context, source, 22f)
+              } else {
+                blurBitmap(context, source, 22f)
+              }
+              var output = composite(source, background, mask, source.width, source.height)
+              if (enhance) output = enhanceBitmap(output)
 
               val outFile = File.createTempFile("wagen-processed-", ".jpg", context.cacheDir)
               FileOutputStream(outFile).use { fos ->
@@ -167,6 +185,39 @@ class WagenPhotoModule : Module() {
         promise.reject(CodedException("PROCESS_FAILED", e.message ?: "Obrada pala", e))
       }
     }
+  }
+
+  // Predlozak skaliran i centralno obrezan na dimenzije fotke
+  private fun loadTemplateScaled(path: String, w: Int, h: Int): Bitmap? {
+    val raw = BitmapFactory.decodeFile(Uri.parse(path).path) ?: return null
+    val scale = maxOf(w.toFloat() / raw.width, h.toFloat() / raw.height)
+    val sw = (raw.width * scale).toInt()
+    val sh = (raw.height * scale).toInt()
+    val scaled = Bitmap.createScaledBitmap(raw, sw, sh, true)
+    val x = (sw - w) / 2
+    val y = (sh - h) / 2
+    return Bitmap.createBitmap(scaled, x.coerceAtLeast(0), y.coerceAtLeast(0), w, h)
+  }
+
+  // Automatska dorada: blagi kontrast + zasicenje (ColorMatrix)
+  private fun enhanceBitmap(source: Bitmap): Bitmap {
+    val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(output)
+    val saturation = android.graphics.ColorMatrix().apply { setSaturation(1.12f) }
+    val contrast = 1.06f
+    val offset = -8f
+    val contrastMatrix = android.graphics.ColorMatrix(
+      floatArrayOf(
+        contrast, 0f, 0f, 0f, offset,
+        0f, contrast, 0f, 0f, offset,
+        0f, 0f, contrast, 0f, offset,
+        0f, 0f, 0f, 1f, 0f,
+      )
+    )
+    saturation.postConcat(contrastMatrix)
+    val paint = Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(saturation) }
+    canvas.drawBitmap(source, 0f, 0f, paint)
+    return output
   }
 
   private fun blurBitmap(context: android.content.Context, source: Bitmap, radius: Float): Bitmap {

@@ -28,6 +28,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      app_events: {
+        Row: {
+          created_at: string;
+          event: string;
+          id: string;
+          payload: Json;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event: string;
+          id?: string;
+          payload?: Json;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event?: string;
+          id?: string;
+          payload?: Json;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           created_at: string;

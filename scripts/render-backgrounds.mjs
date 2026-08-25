@@ -211,10 +211,12 @@ function renderScene(cam) {
 // Auto ce stajati oko [0, 0, 5.2] (sredina sobe po dubini). Kamera 1.4m.
 const CAR = [0, 0.7, 5.6];
 const ANGLES = {
-  'front-left': { pos: [-4.6, 1.4, 1.2], fov: 54 },
-  side: { pos: [-6.4, 1.4, 5.6], fov: 56 },
-  'rear-right': { pos: [4.6, 1.4, 1.2], fov: 54 },
-  rear: { pos: [0, 1.4, 0.9], fov: 54 },
+  'ext-front-left': { pos: [-4.6, 1.4, 1.2], fov: 54 },
+  'ext-front': { pos: [0, 1.4, 0.9], fov: 54 },
+  'ext-front-right': { pos: [4.6, 1.4, 1.2], fov: 54 },
+  'ext-rear-right': { pos: [4.9, 1.4, 1.6], fov: 55 },
+  'ext-rear': { pos: [0, 1.4, 1.1], fov: 55 },
+  'ext-rear-left': { pos: [-4.9, 1.4, 1.6], fov: 55 },
 };
 
 import fs from 'node:fs';
@@ -222,7 +224,7 @@ fs.mkdirSync(OUT, { recursive: true });
 for (const [name, a] of Object.entries(ANGLES)) {
   const cam = camera(a.pos, CAR, a.fov);
   const svg = renderScene(cam);
-  const file = path.join(OUT, `studio-${name}.jpg`);
+  const file = path.join(OUT, `${name}.jpg`);
   await sharp(Buffer.from(svg)).jpeg({ quality: 92 }).toFile(file);
   console.log('OK', file);
 }

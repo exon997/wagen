@@ -24,6 +24,14 @@ export interface LocalPhoto {
   processedUri?: string;
 }
 
+export interface LookSettings {
+  background: 'original' | 'blur' | 'studio';
+  hidePlates: boolean;
+  enhance: boolean;
+}
+
+export const DEFAULT_LOOK: LookSettings = { background: 'blur', hidePlates: true, enhance: true };
+
 export interface VehicleInfo {
   make: string;
   model: string;
@@ -38,6 +46,10 @@ export interface LocalSession {
   vin: string | null;
   /** Rezultat server-side decodea (E2); null = jos nije dekodirano. */
   vehicleInfo?: VehicleInfo | null;
+  /** vehicles.id iz decodea - otkljucava opremu/znacajke (RLS vlasnistvo). */
+  vehicleId?: string | null;
+  /** Priprema: odabrani izgled fotografija (2. korak flowa). */
+  look?: LookSettings;
   photos: LocalPhoto[];
   createdAt: string;
   updatedAt: string;

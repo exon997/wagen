@@ -56,7 +56,7 @@ Ne postoji jedinstven put za sve korisnike — sustav grana po tipu korisnika **
 4. **Dodatna polja** (uvijek ručni unos, bez obzira na VIN izvor):
    - Godina prve registracije
    - Kilometraža
-   - Stanje vozila: novo / rabljeno / oštećeno / popravljena šteta
+   - Stanje vozila (AŽURIRANO 2026-08-25, ODLUČENO): **bez štete / popravljena šteta / oštećeno** — opisuje štetu, ne starost. Zaseban flag **"novo vozilo"** (boolean atribut) za nova vozila; "rabljeno" je implicitno i ne navodi se.
    - Broj vlasnika
    - Servisna knjiga: da / ne / djelomično
    - Korekcija goriva/mjenjača (ako Outvin pogrešno dekodira, npr. facelift modeli)

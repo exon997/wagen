@@ -5,9 +5,15 @@ import { colors, decodeVinLocally } from '@wagen/domain';
 import { getSession, type LocalSession } from '@/lib/sessions';
 import { detectProcessingCapability, type ProcessingCapability } from '@/lib/capabilities';
 
+const LOOK_LABELS: Record<string, string> = {
+  original: 'Original',
+  blur: 'Diskretna',
+  studio: 'Studio',
+};
+
 /**
- * Pregled sesije - koraci pipelinea (4.2): VIN -> fotografiranje -> obrada
- * -> izlaz. Kamera (H1) i obrada (I) sjedaju ovdje.
+ * Flow sesije (spec vlasnika, 2026-08-25): "Od broja sasije do oglasa u
+ * par minuta" - Identifikacija -> Priprema -> Fotografiranje -> Oglas.
  */
 export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,13 +23,8 @@ export default function SessionScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void detectProcessingCapability().then(setCapability);
-    }, []),
-  );
-
-  useFocusEffect(
-    useCallback(() => {
       if (id) void getSession(id).then(setSession);
+      void detectProcessingCapability().then(setCapability);
     }, [id]),
   );
 
@@ -36,6 +37,14 @@ export default function SessionScreen() {
   }
 
   const decoded = session.vin ? decodeVinLocally(session.vin) : null;
+  const go = (screen: string) =>
+    router.push({ pathname: `/sesija/[id]/${screen}` as never, params: { id: session.id } });
+
+  const vehicleLine = session.vehicleInfo
+    ? `${session.vehicleInfo.make} ${session.vehicleInfo.model}${session.vehicleInfo.engineLabel ? ` ${session.vehicleInfo.engineLabel}` : ''}${session.vehicleInfo.modelYear ? ` · ${session.vehicleInfo.modelYear}.` : ''} ✓`
+    : session.vin
+      ? `${session.vin}${decoded?.manufacturer ? ` (${decoded.manufacturer})` : ''}`
+      : 'Skeniraj ili unesi →';
 
   return (
     <View style={styles.container}>
@@ -43,39 +52,48 @@ export default function SessionScreen() {
         options={{ title: session.mode === 'photo' ? 'Fotografiranje' : 'Novi oglas' }}
       />
 
-      <Pressable
-        style={styles.step}
-        onPress={() => router.push({ pathname: '/sesija/[id]/vin', params: { id: session.id } })}
-      >
-        <Text style={styles.stepLabel}>1 · VIN</Text>
+      <Pressable style={styles.step} onPress={() => go('vin')}>
+        <Text style={styles.stepLabel}>1 · Identifikacija</Text>
+        <Text style={styles.stepValue}>{vehicleLine}</Text>
+      </Pressable>
+
+      <Pressable style={styles.step} onPress={() => go('priprema')}>
+        <Text style={styles.stepLabel}>2 · Priprema</Text>
         <Text style={styles.stepValue}>
-          {session.vehicleInfo
-            ? `${session.vehicleInfo.make} ${session.vehicleInfo.model}${session.vehicleInfo.engineLabel ? ` ${session.vehicleInfo.engineLabel}` : ''}${session.vehicleInfo.modelYear ? ` · ${session.vehicleInfo.modelYear}.` : ''} ✓`
-            : session.vin
-              ? `${session.vin}${decoded?.manufacturer ? ` (${decoded.manufacturer})` : ''}`
-              : 'Skeniraj ili unesi →'}
+          {session.look
+            ? `${LOOK_LABELS[session.look.background]}${session.look.hidePlates ? ' · tablice sakrivene' : ''}${session.look.enhance ? ' · dorada' : ''}`
+            : 'Odaberi izgled fotografija →'}
         </Text>
       </Pressable>
 
-      <Pressable
-        style={styles.step}
-        onPress={() => router.push({ pathname: '/sesija/[id]/kamera', params: { id: session.id } })}
-      >
-        <Text style={styles.stepLabel}>2 · Fotografiranje</Text>
+      <Pressable style={styles.step} onPress={() => go('kamera')}>
+        <Text style={styles.stepLabel}>3 · Fotografiranje</Text>
         <Text style={styles.stepValue}>
-          {session.photos.length > 0 ? ` fotografija` : 'Kreni →'}
+          {session.photos.length > 0 ? `${session.photos.length} fotografija` : 'Kreni →'}
         </Text>
       </Pressable>
 
       {session.photos.length > 0 && (
-        <Pressable
-          style={styles.step}
-          onPress={() =>
-            router.push({ pathname: '/sesija/[id]/fotografije', params: { id: session.id } })
-          }
-        >
-          <Text style={styles.stepLabel}>Pregled fotografija</Text>
-          <Text style={styles.stepValue}>{session.photos.length} snimljeno →</Text>
+        <>
+          <Pressable style={styles.substep} onPress={() => go('fotografije')}>
+            <Text style={styles.substepText}>Pregled i obrada fotografija →</Text>
+          </Pressable>
+          {session.vehicleId && (
+            <Pressable style={styles.substep} onPress={() => go('znacajke')}>
+              <Text style={styles.substepText}>Znacajke i oprema →</Text>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      {session.photos.length > 0 && (
+        <Pressable style={[styles.step, styles.stepPrimary]} onPress={() => go('objavi')}>
+          <Text style={styles.stepLabel}>
+            4 · {session.mode === 'photo' ? 'Objavi i na wagen.hr' : 'Oglas'}
+          </Text>
+          <Text style={styles.stepValue}>
+            {session.mode === 'photo' ? 'Oglas je vec 90% gotov →' : 'Zavrsi i objavi →'}
+          </Text>
         </Pressable>
       )}
 
@@ -88,24 +106,6 @@ export default function SessionScreen() {
               ? 'osnovna (uredjaj ne podrzava puni set)'
               : 'nedostupna u ovom okruzenju'}
         </Text>
-      )}
-
-      {session.photos.length > 0 && (
-        <Pressable
-          style={[styles.step, session.mode === 'listing' && styles.stepPrimary]}
-          onPress={() =>
-            router.push({ pathname: '/sesija/[id]/objavi', params: { id: session.id } })
-          }
-        >
-          <Text style={styles.stepLabel}>
-            3 · {session.mode === 'photo' ? 'Objavi i na wagen.hr' : 'Objavi oglas'}
-          </Text>
-          <Text style={styles.stepValue}>
-            {session.mode === 'photo'
-              ? 'Oglas je vec 90% gotov →'
-              : 'Cijena, kilometraza i objava →'}
-          </Text>
-        </Pressable>
       )}
     </View>
   );
@@ -120,10 +120,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  stepDisabled: { opacity: 0.4 },
   stepPrimary: { borderColor: colors.cyan },
   stepLabel: { color: colors.cyan, fontSize: 14, fontWeight: '600', marginBottom: 4 },
   stepValue: { color: colors.white, fontSize: 16 },
+  substep: { paddingVertical: 8, paddingHorizontal: 16, marginBottom: 4 },
+  substepText: { color: colors.gray, fontSize: 14 },
   muted: { color: colors.gray, fontSize: 14 },
-  capability: { color: colors.gray, fontSize: 12, marginBottom: 12 },
+  capability: { color: colors.gray, fontSize: 12, marginTop: 16 },
 });

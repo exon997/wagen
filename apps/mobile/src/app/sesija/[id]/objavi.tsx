@@ -6,12 +6,13 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, decodeVinLocally, formatPrice } from '@wagen/domain';
+import { colors, decodeVinLocally, formatPrice, generateListingTitle } from '@wagen/domain';
 import { getSession, type LocalSession } from '@/lib/sessions';
 import {
   confirmPhoneVerification,
@@ -19,15 +20,27 @@ import {
   isPhoneVerified,
   startPhoneVerification,
 } from '@/lib/crosspost';
+import { getSupabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/events';
 
-type Step = 'form' | 'phone' | 'code' | 'done';
+type Step = 'form' | 'pregled' | 'phone' | 'code' | 'done';
+
+const SERVICE_OPTIONS = [
+  { value: 'da', label: 'Da' },
+  { value: 'ne', label: 'Ne' },
+  { value: 'djelomicno', label: 'Djelomicno' },
+] as const;
+
+const CONDITION_OPTIONS = [
+  { value: 'bez-stete', label: 'Bez stete' },
+  { value: 'popravljena-steta', label: 'Popravljena steta' },
+  { value: 'osteceno', label: 'Osteceno' },
+] as const;
 
 /**
- * J2: Crosspost ekran - "najvazniji ekran u aplikaciji" (sekcija 20).
- * Copy je v1 PRIJEDLOG i ceka odobrenje/A-B u Fazi 0 - oznaceno u TBD.
- *
- * Foto mod: ovo je sekundarni izlaz (4.2) - korisnik je dosao po fotke,
- * oglas mu se NUDI. Oglasni mod: ovo je primarni cilj.
+ * Korak 4 flowa (spec 2026-08-25): Oglas - rucni unos, strukturirani
+ * PREGLED oglasa, opis (slobodan ili AI), pa objava (OTP po potrebi).
+ * Copy je v1 prijedlog (TBD sekcija 20).
  */
 export default function PublishScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,11 +48,19 @@ export default function PublishScreen() {
   const [session, setSession] = useState<LocalSession | null>(null);
   const [step, setStep] = useState<Step>('form');
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [price, setPrice] = useState('');
   const [mileage, setMileage] = useState('');
   const [year, setYear] = useState('');
   const [model, setModel] = useState('');
+  const [owners, setOwners] = useState('');
+  const [serviceBook, setServiceBook] = useState<'da' | 'ne' | 'djelomicno' | null>(null);
+  const [condition, setCondition] = useState<'bez-stete' | 'popravljena-steta' | 'osteceno' | null>(
+    null,
+  );
+  const [isNew, setIsNew] = useState(false);
+  const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('385');
   const [code, setCode] = useState('');
   const [listingId, setListingId] = useState<string | null>(null);
@@ -49,47 +70,43 @@ export default function PublishScreen() {
   }, [id]);
 
   const decoded = session?.vin ? decodeVinLocally(session.vin) : null;
-  // E2: model poznat iz server decodea - polje se trazi samo kad ga nema
   const knownModel = session?.vehicleInfo?.model ?? null;
-  const needsModel = !knownModel;
 
-  const submitForm = async () => {
-    if (busy || !session) return;
-    setBusy(true);
-    try {
-      if ((await isPhoneVerified()) === true) {
-        await publish();
-      } else {
-        setStep('phone');
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
+  const title = generateListingTitle({
+    firstRegistrationYear: year ? Number(year) : (session?.vehicleInfo?.modelYear ?? null),
+    make: session?.vehicleInfo?.make ?? decoded?.manufacturer ?? '',
+    model: knownModel ?? model,
+    engineLabel: session?.vehicleInfo?.engineLabel ?? null,
+  });
 
-  const sendOtp = async () => {
-    if (busy) return;
-    setBusy(true);
+  const suggestDescription = async () => {
+    if (aiBusy || !session) return;
+    setAiBusy(true);
     try {
-      await startPhoneVerification(phone.replace(/\s/g, ''));
-      setStep('code');
+      const supabase = getSupabase();
+      if (!supabase) throw new Error('Nema veze');
+      const { data, error } = await supabase.functions.invoke('generate-description', {
+        body: {
+          make: session.vehicleInfo?.make ?? decoded?.manufacturer ?? null,
+          model: knownModel ?? (model || null),
+          engineLabel: session.vehicleInfo?.engineLabel ?? null,
+          firstRegistrationYear: year ? Number(year) : null,
+          mileageKm: mileage ? Number(mileage) : null,
+          ownersCount: owners ? Number(owners) : null,
+          serviceBook,
+          condition,
+          isNew,
+          vehicleId: session.vehicleId ?? null,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const text = (data as { description?: string } | null)?.description;
+      if (text) setDescription(text);
+      logEvent('ai_description_used');
     } catch (e) {
-      Alert.alert('SMS nije poslan', e instanceof Error ? e.message : String(e));
+      Alert.alert('Prijedlog nije uspio', e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const verifyAndPublish = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim());
-      await publish();
-    } catch (e) {
-      Alert.alert('Kod nije prihvacen', e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+      setAiBusy(false);
     }
   };
 
@@ -100,18 +117,36 @@ export default function PublishScreen() {
         priceEur: price ? Math.round(Number(price)) : null,
         mileageKm: mileage ? Math.round(Number(mileage)) : null,
         firstRegistrationYear: year ? Number(year) : null,
+        ownersCount: owners ? Number(owners) : null,
+        serviceBook,
+        condition,
+        isNew,
+        description: description.trim() || null,
         model: knownModel ?? (model || undefined),
         make: session.vehicleInfo?.make,
       });
       setListingId(newId);
       setStep('done');
+      logEvent('listing_published');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (message === 'MAKE_MODEL_REQUIRED') {
         Alert.alert('Nedostaje model', 'Upisi model vozila (npr. X3).');
+        setStep('form');
       } else {
         Alert.alert('Objava nije uspjela', message);
       }
+    }
+  };
+
+  const continueFromPreview = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (await isPhoneVerified()) await publish();
+      else setStep('phone');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -123,30 +158,27 @@ export default function PublishScreen() {
     );
   }
 
+  const chip = (selected: boolean, label: string, onPress: () => void, key: string) => (
+    <Pressable key={key} style={[styles.chip, selected && styles.chipActive]} onPress={onPress}>
+      <Text style={[styles.chipText, selected && styles.chipTextActive]}>{label}</Text>
+    </Pressable>
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Stack.Screen options={{ title: 'Objavi na wagen.hr' }} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <Stack.Screen options={{ title: 'Oglas' }} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {step === 'form' && (
           <>
-            <Text style={styles.headline}>Oglas je vec 90% gotov</Text>
+            <Text style={styles.headline}>Zavrsi oglas</Text>
             <Text style={styles.sub}>
-              Fotografije i podaci o vozilu su spremni. Dodaj jos par stvari i objavi.
+              {session.photos.length} fotografija spremno. Jos par podataka:
             </Text>
 
-            <Text style={styles.summary}>
-              {session.photos.length} fotografija
-              {session.vehicleInfo
-                ? ` · ${session.vehicleInfo.make} ${session.vehicleInfo.model}${session.vehicleInfo.engineLabel ? ` ${session.vehicleInfo.engineLabel}` : ''}`
-                : decoded?.manufacturer
-                  ? ` · ${decoded.manufacturer}`
-                  : ''}
-            </Text>
-
-            {needsModel && (
+            {!knownModel && (
               <>
                 <Text style={styles.label}>Model (npr. X3)</Text>
                 <TextInput
@@ -158,6 +190,7 @@ export default function PublishScreen() {
                 />
               </>
             )}
+
             <Text style={styles.label}>Cijena u EUR (prazno = "Na upit")</Text>
             <TextInput
               style={styles.input}
@@ -168,6 +201,7 @@ export default function PublishScreen() {
               placeholderTextColor={colors.gray}
             />
             {price !== '' && <Text style={styles.pricePreview}>{formatPrice(Number(price))}</Text>}
+
             <Text style={styles.label}>Kilometraza</Text>
             <TextInput
               style={styles.input}
@@ -177,6 +211,7 @@ export default function PublishScreen() {
               placeholder="95000"
               placeholderTextColor={colors.gray}
             />
+
             <Text style={styles.label}>Godina prve registracije</Text>
             <TextInput
               style={styles.input}
@@ -184,12 +219,107 @@ export default function PublishScreen() {
               onChangeText={(t) => setYear(t.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               maxLength={4}
-              placeholder={decoded?.year ? String(decoded.year) : '2018'}
+              placeholder={session.vehicleInfo?.modelYear?.toString() ?? '2018'}
               placeholderTextColor={colors.gray}
             />
 
-            <Pressable style={styles.primary} onPress={() => void submitForm()} disabled={busy}>
-              <Text style={styles.primaryText}>{busy ? 'Trenutak…' : 'Objavi oglas'}</Text>
+            <Text style={styles.label}>Broj vlasnika</Text>
+            <TextInput
+              style={styles.input}
+              value={owners}
+              onChangeText={(t) => setOwners(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              maxLength={2}
+              placeholder="1"
+              placeholderTextColor={colors.gray}
+            />
+
+            <Text style={styles.label}>Servisna povijest</Text>
+            <View style={styles.chipRow}>
+              {SERVICE_OPTIONS.map((o) =>
+                chip(serviceBook === o.value, o.label, () => setServiceBook(o.value), o.value),
+              )}
+            </View>
+
+            <Text style={styles.label}>Stanje vozila</Text>
+            <View style={styles.chipRow}>
+              {CONDITION_OPTIONS.map((o) =>
+                chip(condition === o.value, o.label, () => setCondition(o.value), o.value),
+              )}
+            </View>
+
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>Novo vozilo</Text>
+              <Switch
+                value={isNew}
+                onValueChange={setIsNew}
+                trackColor={{ true: colors.cyan, false: colors.gray }}
+              />
+            </View>
+
+            <Pressable style={styles.primary} onPress={() => setStep('pregled')}>
+              <Text style={styles.primaryText}>Pregled oglasa</Text>
+            </Pressable>
+          </>
+        )}
+
+        {step === 'pregled' && (
+          <>
+            <Text style={styles.headline}>Pregled oglasa</Text>
+
+            <View style={styles.previewCard}>
+              <Text style={styles.previewTitle1}>{title.line1 || '—'}</Text>
+              {!!title.line2 && <Text style={styles.previewTitle2}>{title.line2}</Text>}
+              <View style={styles.priceBar}>
+                <Text style={styles.priceText}>
+                  {price ? formatPrice(Number(price)) : 'Na upit'}
+                </Text>
+              </View>
+              <Text style={styles.previewSpec}>
+                {[
+                  mileage ? `${Number(mileage).toLocaleString('hr-HR')} km` : null,
+                  owners ? `${owners}. vlasnik` : null,
+                  serviceBook ? `servisna: ${serviceBook}` : null,
+                  condition ? CONDITION_OPTIONS.find((c) => c.value === condition)?.label : null,
+                  isNew ? 'NOVO' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+              <Text style={styles.previewPhotos}>{session.photos.length} fotografija</Text>
+            </View>
+
+            <Text style={styles.label}>Opis oglasa</Text>
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={6}
+              placeholder="Napisi opis sam, ili dodirni 'Predlozi mi'…"
+              placeholderTextColor={colors.gray}
+            />
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => void suggestDescription()}
+              disabled={aiBusy}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {aiBusy ? 'Pisem…' : '✨ Predlozi mi opis'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.primary}
+              onPress={() => void continueFromPreview()}
+              disabled={busy}
+            >
+              <Text style={styles.primaryText}>
+                {busy ? 'Trenutak…' : 'Objavi potpuno besplatno'}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.secondary} onPress={() => setStep('form')}>
+              <Text style={styles.secondaryText}>Natrag na podatke</Text>
             </Pressable>
           </>
         )}
@@ -212,7 +342,15 @@ export default function PublishScreen() {
             />
             <Pressable
               style={styles.primary}
-              onPress={() => void sendOtp()}
+              onPress={() => {
+                setBusy(true);
+                startPhoneVerification(phone.replace(/\s/g, ''))
+                  .then(() => setStep('code'))
+                  .catch((e: unknown) =>
+                    Alert.alert('SMS nije poslan', e instanceof Error ? e.message : String(e)),
+                  )
+                  .finally(() => setBusy(false));
+              }}
               disabled={busy || phone.length < 11}
             >
               <Text style={styles.primaryText}>{busy ? 'Saljem…' : 'Posalji kod'}</Text>
@@ -230,13 +368,21 @@ export default function PublishScreen() {
               onChangeText={(t) => setCode(t.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               maxLength={6}
+              autoFocus
               placeholder="123456"
               placeholderTextColor={colors.gray}
-              autoFocus
             />
             <Pressable
               style={styles.primary}
-              onPress={() => void verifyAndPublish()}
+              onPress={() => {
+                setBusy(true);
+                confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim())
+                  .then(() => publish())
+                  .catch((e: unknown) =>
+                    Alert.alert('Kod nije prihvacen', e instanceof Error ? e.message : String(e)),
+                  )
+                  .finally(() => setBusy(false));
+              }}
               disabled={busy || code.length !== 6}
             >
               <Text style={styles.primaryText}>{busy ? 'Objavljujem…' : 'Potvrdi i objavi'}</Text>
@@ -252,6 +398,17 @@ export default function PublishScreen() {
               podaci su sigurno spremljeni.
             </Text>
             {listingId && <Text style={styles.muted}>Broj oglasa: {listingId.slice(0, 8)}</Text>}
+
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => {
+                logEvent('pdf_profile_interest');
+                Alert.alert('Uskoro', 'PDF profil vozila stize uskoro - zabiljezili smo interes!');
+              }}
+            >
+              <Text style={styles.secondaryButtonText}>📄 PDF profil vozila (uskoro)</Text>
+            </Pressable>
+
             <Pressable style={styles.primary} onPress={() => router.dismissAll()}>
               <Text style={styles.primaryText}>Gotovo</Text>
             </Pressable>
@@ -264,10 +421,9 @@ export default function PublishScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
-  scroll: { padding: 24 },
+  scroll: { padding: 24, paddingBottom: 48 },
   headline: { color: colors.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  sub: { color: colors.gray, fontSize: 15, marginBottom: 20, lineHeight: 21 },
-  summary: { color: colors.cyan, fontSize: 14, marginBottom: 16 },
+  sub: { color: colors.gray, fontSize: 15, marginBottom: 16, lineHeight: 21 },
   label: { color: colors.gray, marginTop: 12, marginBottom: 6, fontSize: 13 },
   input: {
     borderColor: colors.gray,
@@ -277,15 +433,65 @@ const styles = StyleSheet.create({
     fontSize: 17,
     padding: 12,
   },
+  textarea: { minHeight: 120, textAlignVertical: 'top' },
   codeInput: { letterSpacing: 8, fontSize: 24, textAlign: 'center' },
   pricePreview: { color: colors.cyan, fontSize: 15, fontWeight: '700', marginTop: 6 },
+  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: {
+    borderColor: colors.gray,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  chipActive: { borderColor: colors.cyan, backgroundColor: '#0a1a1c' },
+  chipText: { color: colors.gray, fontSize: 14 },
+  chipTextActive: { color: colors.cyan, fontWeight: '600' },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  toggleLabel: { color: colors.white, fontSize: 15 },
+  previewCard: {
+    borderColor: colors.gray,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  previewTitle1: { color: colors.white, fontSize: 19, fontWeight: '500' },
+  previewTitle2: { color: colors.gray, fontSize: 15, marginTop: 2 },
+  priceBar: {
+    backgroundColor: colors.cyan,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  priceText: { color: colors.black, fontWeight: '700', fontStyle: 'italic', fontSize: 17 },
+  previewSpec: { color: colors.white, fontSize: 13, marginTop: 10 },
+  previewPhotos: { color: colors.gray, fontSize: 12, marginTop: 4 },
   primary: {
     backgroundColor: colors.cyan,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 24,
   },
   primaryText: { color: colors.black, fontWeight: '700', fontSize: 16 },
-  muted: { color: colors.gray, fontSize: 14, marginBottom: 16 },
+  secondary: { padding: 14, alignItems: 'center' },
+  secondaryText: { color: colors.gray, fontSize: 14 },
+  secondaryButton: {
+    borderColor: colors.cyan,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 13,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  secondaryButtonText: { color: colors.cyan, fontSize: 15, fontWeight: '600' },
+  muted: { color: colors.gray, fontSize: 14, marginBottom: 12 },
 });

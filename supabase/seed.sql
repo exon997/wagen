@@ -94,7 +94,7 @@ select
   case when s.i < 14 then 'Zagreb' when s.i < 26 then 'Split' else 'Rijeka' end,
   jsonb_build_object(
     'fuel', s.fuel, 'transmission', s.transmission, 'power_kw', s.power_kw,
-    'condition', 'rabljeno', 'owners_count', (s.i % 3) + 1,
+    'condition', 'bez-stete', 'owners_count', (s.i % 3) + 1,
     'service_book', (array['da','ne','djelomicno'])[(s.i % 3) + 1]
   ),
   'Uredno servisirano vozilo, prvi lak, kupljeno u Hrvatskoj. Moguca zamjena.',

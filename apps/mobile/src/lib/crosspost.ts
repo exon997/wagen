@@ -17,6 +17,11 @@ export interface CrosspostInput {
   priceEur: number | null;
   mileageKm: number | null;
   firstRegistrationYear: number | null;
+  ownersCount: number | null;
+  serviceBook: 'da' | 'ne' | 'djelomicno' | null;
+  condition: 'bez-stete' | 'popravljena-steta' | 'osteceno' | null;
+  isNew: boolean;
+  description: string | null;
   /** Obavezno samo kad vozilo nije u Outvin cacheu. */
   make?: string | undefined;
   model?: string | undefined;
@@ -104,7 +109,13 @@ export async function crosspostSession(
       status: 'pending',
       mileage_km: input.mileageKm,
       first_registration_year: input.firstRegistrationYear,
-      attributes: {},
+      description: input.description,
+      attributes: {
+        ...(input.condition ? { condition: input.condition } : {}),
+        ...(input.ownersCount != null ? { owners_count: input.ownersCount } : {}),
+        ...(input.serviceBook ? { service_book: input.serviceBook } : {}),
+        ...(input.isNew ? { is_new: true } : {}),
+      },
     })
     .select('id')
     .single();
