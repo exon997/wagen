@@ -55,9 +55,11 @@ Deno.serve(async (req) => {
         const raw = await response.json();
         const decoded = mapVindataResponse(raw);
         if (decoded.found && decoded.make && decoded.model) {
+          // upsert: istovremeni pozivi (accept + samoizljecenje) ne smiju
+          // jedan drugome srusiti upis na unique(vin)
           const { data: vehicle } = await service
             .from('vehicles')
-            .insert({
+            .upsert({
               vin,
               make: decoded.make,
               model: decoded.model,
@@ -67,7 +69,7 @@ Deno.serve(async (req) => {
               vin_decoded_source: 'vindata',
               decode_data: raw,
               decode_fetched_at: new Date().toISOString(),
-            })
+            }, { onConflict: 'vin' })
             .select('id, vin, make, model, trim, engine_label, model_year, vin_decoded_source')
             .single();
           if (vehicle) {
@@ -101,6 +103,10 @@ Deno.serve(async (req) => {
             return Response.json({ source: 'vindata', vehicle });
           }
         }
+      } else if (response.status === 404) {
+        // Legitiman promasaj dobavljaca (cesto starija vozila) - jasan
+        // signal aplikaciji da NE ponavlja pokusaje za ovaj VIN
+        return Response.json({ source: 'not_found', vehicle: null });
       }
     } catch (e) {
       console.warn('vindata pao, fallback:', e);

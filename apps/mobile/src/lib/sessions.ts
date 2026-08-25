@@ -48,6 +48,8 @@ export interface LocalSession {
   vehicleInfo?: VehicleInfo | null;
   /** vehicles.id iz decodea - otkljucava opremu/znacajke (RLS vlasnistvo). */
   vehicleId?: string | null;
+  /** Dobavljac NEMA ovaj VIN (starija vozila) - samoizljecenje ne ponavlja. */
+  vinLookupMiss?: boolean;
   /** Priprema: odabrani izgled fotografija (2. korak flowa). */
   look?: LookSettings;
   photos: LocalPhoto[];

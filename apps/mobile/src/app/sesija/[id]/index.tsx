@@ -29,15 +29,20 @@ export default function SessionScreen() {
       if (!id) return;
       void getSession(id).then(async (s) => {
         setSession(s);
-        // Samoizljecenje: VIN postoji, a decode nije uspio (timeout/offline)
-        if (s?.vin && !s.vehicleId) {
-          const { info, error } = await decodeVinRemote(s.vin);
+        // Samoizljecenje: VIN postoji, a decode nije uspio (timeout/offline).
+        // Promasaj dobavljaca (miss) se pamti - njega ne ponavljamo.
+        if (s?.vin && !s.vehicleId && !s.vinLookupMiss) {
+          const { info, error, miss } = await decodeVinRemote(s.vin);
           if (info) {
             const { vehicleId, ...vehicleInfo } = info;
             const updated = await updateSession(id, { vehicleInfo, vehicleId });
             setSession(updated);
             setDecodeError(null);
             void syncSession(updated);
+          } else if (miss) {
+            const updated = await updateSession(id, { vinLookupMiss: true });
+            setSession(updated);
+            setDecodeError(null);
           } else {
             setDecodeError(error);
           }
@@ -76,6 +81,11 @@ export default function SessionScreen() {
         <Text style={styles.stepValue}>{vehicleLine}</Text>
         {!session.vehicleId && decodeError && (
           <Text style={styles.decodeError}>Prepoznavanje nije uspjelo: {decodeError}</Text>
+        )}
+        {!session.vehicleId && !decodeError && session.vinLookupMiss && (
+          <Text style={styles.decodeMiss}>
+            VIN nije u bazi dobavljaca - podaci o vozilu se unose rucno pri objavi
+          </Text>
         )}
       </Pressable>
 
@@ -150,4 +160,5 @@ const styles = StyleSheet.create({
   muted: { color: colors.gray, fontSize: 14 },
   capability: { color: colors.gray, fontSize: 12, marginTop: 16 },
   decodeError: { color: '#ff9c9c', fontSize: 12, marginTop: 6 },
+  decodeMiss: { color: colors.gray, fontSize: 12, marginTop: 6 },
 });

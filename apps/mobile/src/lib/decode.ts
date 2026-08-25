@@ -16,9 +16,23 @@ export interface RemoteDecode extends VehicleInfo {
 export interface DecodeOutcome {
   info: RemoteDecode | null;
   error: string | null;
+  /** Dobavljac NEMA ovaj VIN (starija vozila) - ne ponavljati pokusaje. */
+  miss?: boolean;
 }
 
-export async function decodeVinRemote(vin: string): Promise<DecodeOutcome> {
+// Dedup: accept-gumb i samoizljecenje znaju okinuti istovremeno - dijele
+// jedan poziv (dvostruki vindata lookup = dvostruki trosak + race na upisu)
+const inFlight = new Map<string, Promise<DecodeOutcome>>();
+
+export function decodeVinRemote(vin: string): Promise<DecodeOutcome> {
+  const existing = inFlight.get(vin);
+  if (existing) return existing;
+  const promise = doDecode(vin).finally(() => inFlight.delete(vin));
+  inFlight.set(vin, promise);
+  return promise;
+}
+
+async function doDecode(vin: string): Promise<DecodeOutcome> {
   const supabase = getSupabase();
   if (!supabase) return { info: null, error: 'aplikacija nije povezana (konfiguracija)' };
 
@@ -39,7 +53,16 @@ export async function decodeVinRemote(vin: string): Promise<DecodeOutcome> {
       return fail(`${status ? `HTTP ${status}: ` : ''}${error.message || String(error)}`);
     }
 
-    const vehicle = (data as { vehicle?: Record<string, unknown> | null } | null)?.vehicle;
+    const payload = data as {
+      source?: string;
+      vehicle?: Record<string, unknown> | null;
+    } | null;
+    if (payload?.source === 'not_found' || payload?.source === 'iso_fallback') {
+      logEvent('vin_decode_miss', { vin, source: payload.source ?? '' });
+      return { info: null, error: null, miss: true };
+    }
+
+    const vehicle = payload?.vehicle;
     if (
       !vehicle ||
       typeof vehicle['id'] !== 'string' ||

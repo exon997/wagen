@@ -57,7 +57,13 @@ export default function VinScreen() {
       ]);
       if (outcome.info) {
         const { vehicleId, ...vehicleInfo } = outcome.info;
-        updated = await updateSession(id, { vehicleInfo, vehicleId });
+        updated = await updateSession(id, { vehicleInfo, vehicleId, vinLookupMiss: false });
+      } else if ('miss' in outcome && outcome.miss) {
+        updated = await updateSession(id, { vinLookupMiss: true });
+        Alert.alert(
+          'VIN nije u bazi podataka',
+          'Dobavljac nema podatke za ovaj VIN - cesto kod starijih vozila. Nista strasno: podatke o vozilu unijet ces rucno pri objavi.',
+        );
       } else if (outcome.error) {
         Alert.alert(
           'Vozilo jos nije prepoznato',
