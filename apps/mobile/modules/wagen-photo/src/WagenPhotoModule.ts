@@ -6,7 +6,7 @@ interface WagenPhotoNative {
   processPhoto(
     uri: string,
     options: { mode: 'none' | 'blur' | 'template'; templateUri?: string; enhance?: boolean },
-  ): Promise<string>;
+  ): Promise<{ uri: string; templateApplied: boolean }>;
   blurRegions(
     uri: string,
     rects: { left: number; top: number; width: number; height: number }[],

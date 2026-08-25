@@ -22,6 +22,7 @@ export default function SessionScreen() {
   const router = useRouter();
   const [session, setSession] = useState<LocalSession | null>(null);
   const [capability, setCapability] = useState<ProcessingCapability | null>(null);
+  const [decodeError, setDecodeError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -30,12 +31,15 @@ export default function SessionScreen() {
         setSession(s);
         // Samoizljecenje: VIN postoji, a decode nije uspio (timeout/offline)
         if (s?.vin && !s.vehicleId) {
-          const info = await decodeVinRemote(s.vin);
+          const { info, error } = await decodeVinRemote(s.vin);
           if (info) {
             const { vehicleId, ...vehicleInfo } = info;
             const updated = await updateSession(id, { vehicleInfo, vehicleId });
             setSession(updated);
+            setDecodeError(null);
             void syncSession(updated);
+          } else {
+            setDecodeError(error);
           }
         }
       });
@@ -70,6 +74,9 @@ export default function SessionScreen() {
       <Pressable style={styles.step} onPress={() => go('vin')}>
         <Text style={styles.stepLabel}>1 · Identifikacija</Text>
         <Text style={styles.stepValue}>{vehicleLine}</Text>
+        {!session.vehicleId && decodeError && (
+          <Text style={styles.decodeError}>Prepoznavanje nije uspjelo: {decodeError}</Text>
+        )}
       </Pressable>
 
       <Pressable style={styles.step} onPress={() => go('priprema')}>
@@ -142,4 +149,5 @@ const styles = StyleSheet.create({
   substepText: { color: colors.gray, fontSize: 14 },
   muted: { color: colors.gray, fontSize: 14 },
   capability: { color: colors.gray, fontSize: 12, marginTop: 16 },
+  decodeError: { color: '#ff9c9c', fontSize: 12, marginTop: 6 },
 });

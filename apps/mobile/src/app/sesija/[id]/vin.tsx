@@ -47,14 +47,22 @@ export default function VinScreen() {
     let updated = await updateSession(id, { vin });
     void syncSession(updated);
     if (vin) {
-      // E2: server decode (cache + vindata) - kratki timeout, offline ne blokira
-      const info = await Promise.race([
+      // E2: server decode (cache + vindata) - timeout ne blokira flow, ali
+      // razlog neuspjeha se UVIJEK pokazuje (terenska lekcija iz builda #18)
+      const outcome = await Promise.race([
         decodeVinRemote(vin),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000)),
+        new Promise<{ info: null; error: string }>((resolve) =>
+          setTimeout(() => resolve({ info: null, error: 'isteklo vrijeme (15 s)' }), 15000),
+        ),
       ]);
-      if (info) {
-        const { vehicleId, ...vehicleInfo } = info;
+      if (outcome.info) {
+        const { vehicleId, ...vehicleInfo } = outcome.info;
         updated = await updateSession(id, { vehicleInfo, vehicleId });
+      } else if (outcome.error) {
+        Alert.alert(
+          'Vozilo jos nije prepoznato',
+          `Nastavljamo bez podataka - pokusat cu ponovno automatski.\n\nDetalj: ${outcome.error}`,
+        );
       }
     }
     router.back();

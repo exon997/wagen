@@ -141,7 +141,7 @@ class WagenPhotoModule : Module() {
           val output = if (enhance) enhanceBitmap(source) else source
           val outFile = File.createTempFile("wagen-processed-", ".jpg", context.cacheDir)
           FileOutputStream(outFile).use { fos -> output.compress(Bitmap.CompressFormat.JPEG, 90, fos) }
-          promise.resolve("file://" + outFile.absolutePath)
+          promise.resolve(mapOf("uri" to "file://" + outFile.absolutePath, "templateApplied" to false))
           return@AsyncFunction
         }
 
@@ -159,13 +159,14 @@ class WagenPhotoModule : Module() {
                   CodedException("NO_MASK", "Segmentacija nije vratila masku", null)
                 )
 
-              // Pozadina: predlozak (studio) ili zamucena kopija originala
-              val background = if (mode == "template" && templatePath != null) {
+              // Pozadina: predlozak (studio) ili zamucena kopija originala.
+              // Fallback na blur NIJE tih - templateApplied ide u JS sloj.
+              val template = if (mode == "template" && templatePath != null) {
                 loadTemplateScaled(templatePath, source.width, source.height)
-                  ?: blurBitmap(context, source, 22f)
               } else {
-                blurBitmap(context, source, 22f)
+                null
               }
+              val background = template ?: blurBitmap(context, source, 22f)
               var output = composite(source, background, mask, source.width, source.height)
               if (enhance) output = enhanceBitmap(output)
 
@@ -173,7 +174,9 @@ class WagenPhotoModule : Module() {
               FileOutputStream(outFile).use { fos ->
                 output.compress(Bitmap.CompressFormat.JPEG, 90, fos)
               }
-              promise.resolve("file://${outFile.absolutePath}")
+              promise.resolve(
+                mapOf("uri" to "file://${outFile.absolutePath}", "templateApplied" to (template != null))
+              )
             } catch (e: Throwable) {
               promise.reject(CodedException("COMPOSITE_FAILED", e.message ?: "Obrada pala", e))
             }

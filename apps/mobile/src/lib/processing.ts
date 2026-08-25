@@ -9,6 +9,7 @@
  */
 import { Asset } from 'expo-asset';
 import { detectProcessingCapability } from '@/lib/capabilities';
+import { logEvent } from '@/lib/events';
 import { findPlateRegions } from '@/lib/plates';
 import {
   DEFAULT_LOOK,
@@ -54,14 +55,24 @@ async function processOne(
 ): Promise<string | null> {
   const { WagenPhoto } = await import('../../modules/wagen-photo');
 
+  const shotKey = shotKeyFromUri(photo.uri) ?? 'nepoznat';
+
   // I4: sakrij registarske oznake (radi na svim uredjajima)
   let workingUri = photo.uri;
-  if (look.hidePlates) {
+  if (look.hidePlates && photo.angleCategory === 'exterior') {
     try {
       const plates = await findPlateRegions(photo.uri);
+      logEvent('plates_detected', { shot: shotKey, count: plates.length });
       if (plates.length > 0) {
         workingUri = await WagenPhoto.blurRegions(photo.uri, plates);
       }
+    } catch (e) {
+      logEvent('plates_error', { shot: shotKey, error: String(e).slice(0, 160) });
+    }
+  } else if (look.hidePlates) {
+    try {
+      const plates = await findPlateRegions(photo.uri);
+      if (plates.length > 0) workingUri = await WagenPhoto.blurRegions(photo.uri, plates);
     } catch (e) {
       console.warn('Detekcija tablica preskocena:', e);
     }
@@ -73,15 +84,28 @@ async function processOne(
 
   if (!wantsBackground) {
     if (!look.enhance && workingUri === photo.uri) return null; // nista za raditi
-    return WagenPhoto.processPhoto(workingUri, { mode: 'none', enhance: look.enhance });
+    const res = await WagenPhoto.processPhoto(workingUri, { mode: 'none', enhance: look.enhance });
+    return res.uri;
   }
 
   const templateUri = look.background === 'studio' ? await templateUriFor(photo) : null;
-  return WagenPhoto.processPhoto(workingUri, {
+  if (look.background === 'studio' && !templateUri) {
+    // Ocekivano za kotac izbliza (nema predloska); za 6 glavnih kadrova = bug
+    logEvent('studio_template_missing', { shot: shotKey, uri: photo.uri.slice(-48) });
+  }
+  const res = await WagenPhoto.processPhoto(workingUri, {
     mode: templateUri ? 'template' : 'blur',
     ...(templateUri ? { templateUri } : {}),
     enhance: look.enhance,
   });
+  if (templateUri && !res.templateApplied) {
+    logEvent('studio_template_failed', {
+      shot: shotKey,
+      scheme: templateUri.split(':')[0] ?? '',
+      uri: templateUri.slice(0, 80),
+    });
+  }
+  return res.uri;
 }
 
 export async function processSessionPhotos(
@@ -124,5 +148,12 @@ export async function processSessionPhotos(
     onProgress?.(done, targets.length);
   }
 
+  logEvent('photos_processed', {
+    background: look.background,
+    capability,
+    processed: result.processed,
+    skipped: result.skipped,
+    failed: result.failed,
+  });
   return { photos, result };
 }
