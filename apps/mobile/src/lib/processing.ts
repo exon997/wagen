@@ -1,16 +1,21 @@
 /**
  * I2/I4 orkestracija: obrada fotografija po postavkama iz Pripreme (2. korak
- * flowa): pozadina Original/Diskretna(blur)/Studio(predlozak), sakrivanje
+ * flowa): pozadina Original/Diskretna(blur)/Studio(AI u oblaku), sakrivanje
  * registarskih oznaka, automatska dorada. Original se uvijek cuva.
  *
- * Studio predlosci postoje za 6 eksterijernih kadrova cijelog auta;
- * ostali kadrovi u studio modu dobivaju blur (kotac izbliza i interijer
- * nemaju smislen predlozak).
+ * Studio (odluka 2026-08-25): fotka ide u edge funkciju studio-photo
+ * (Gemini) - eksterijer dobiva studio pozadinu, interijer zamjenu pogleda
+ * kroz stakla. Tablice se zamucuju NA UREDJAJU prije slanja. Ako oblak
+ * padne (offline), eksterijer degradira na nativni pipeline (predlozak/
+ * blur) - i to se biljezi, nikad tiho. Kotac izbliza, prtljaznik i
+ * znacajke se u studio modu ne diraju.
  */
 import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
 import { detectProcessingCapability } from '@/lib/capabilities';
 import { logEvent } from '@/lib/events';
 import { findPlateRegions } from '@/lib/plates';
+import { getSupabase } from '@/lib/supabase';
 import {
   DEFAULT_LOOK,
   type LocalPhoto,
@@ -38,6 +43,48 @@ const TEMPLATE_MODULES: Record<string, number> = {
 function shotKeyFromUri(uri: string): string | null {
   const match = /\/([a-z-]+)-[0-9a-f]{8}\.jpg$/.exec(uri);
   return match?.[1] ?? null;
+}
+
+const STUDIO_CLOUD_TIMEOUT_MS = 90000;
+
+/** AI studio u oblaku; null = nije uspjelo (razlog zabiljezen, nikad tih). */
+async function studioCloud(
+  uri: string,
+  kind: 'exterior' | 'interior',
+  shotKey: string,
+): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const started = Date.now();
+  try {
+    const image = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const invocation = supabase.functions.invoke('studio-photo', { body: { image, kind } });
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('isteklo vrijeme (90 s)')), STUDIO_CLOUD_TIMEOUT_MS),
+    );
+    const { data, error } = await Promise.race([invocation, timeout]);
+    if (error) {
+      const status = (error as { context?: { status?: number } }).context?.status;
+      throw new Error(`${status ? `HTTP ${status}: ` : ''}${error.message || String(error)}`);
+    }
+    const out = (data as { image?: string } | null)?.image;
+    if (!out) throw new Error('prazan odgovor servera');
+    const dest = `${FileSystem.cacheDirectory}wagen-studio-${shotKey}-${started}.jpg`;
+    await FileSystem.writeAsStringAsync(dest, out, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    logEvent('studio_cloud_ok', { shot: shotKey, kind, ms: Date.now() - started });
+    return dest;
+  } catch (e) {
+    logEvent('studio_cloud_failed', {
+      shot: shotKey,
+      kind,
+      error: (e instanceof Error ? e.message : String(e)).slice(0, 160),
+    });
+    return null;
+  }
 }
 
 async function templateUriFor(photo: LocalPhoto): Promise<string | null> {
@@ -78,9 +125,30 @@ async function processOne(
     }
   }
 
-  // Pozadina se obradjuje samo na eksterijeru cijelog auta
+  // Studio: AI u oblaku - eksterijer cijelog auta i interijer; kotac
+  // izbliza AI zna precrtati pa ga preskacemo (kao i prtljaznik/znacajke)
+  if (look.background === 'studio') {
+    const cloudKind =
+      photo.angleCategory === 'interior'
+        ? ('interior' as const)
+        : shotKey in TEMPLATE_MODULES
+          ? ('exterior' as const)
+          : null;
+    if (cloudKind) {
+      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey);
+      if (cloudUri) return cloudUri;
+      // pad oblaka: eksterijer nastavlja na nativni pipeline ispod
+    }
+  }
+
+  // Pozadina (nativno) se obradjuje samo na eksterijeru cijelog auta;
+  // u studio modu ovo je jos samo fallback za 6 glavnih kadrova
   const isCarShot = photo.angleCategory === 'exterior';
-  const wantsBackground = look.background !== 'original' && isCarShot && capability === 'full';
+  const wantsBackground =
+    look.background !== 'original' &&
+    isCarShot &&
+    capability === 'full' &&
+    (look.background !== 'studio' || shotKey in TEMPLATE_MODULES);
 
   if (!wantsBackground) {
     if (!look.enhance && workingUri === photo.uri) return null; // nista za raditi
@@ -112,15 +180,16 @@ export async function processSessionPhotos(
   session: LocalSession,
   onProgress?: (done: number, total: number) => void,
 ): Promise<{ photos: LocalPhoto[]; result: ProcessResult }> {
-  const capability = await detectProcessingCapability();
-  if (capability === 'none') {
+  const detected = await detectProcessingCapability();
+  const look = session.look ?? DEFAULT_LOOK;
+  // Studio ide u oblak pa radi i na uredjajima bez segmentacije
+  if (detected === 'none' && look.background !== 'studio') {
     return {
       photos: session.photos,
       result: { processed: 0, skipped: session.photos.length, failed: 0 },
     };
   }
-
-  const look = session.look ?? DEFAULT_LOOK;
+  const capability = detected === 'none' ? 'blur_only' : detected;
   const targets = session.photos.filter((p) => !p.processedUri);
   const result: ProcessResult = {
     processed: 0,

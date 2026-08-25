@@ -112,6 +112,20 @@ Oba tipa korisnika u aplikaciji rade identičan posao: **VIN sken → podaci o v
 
 ### 4.4 Foto obrada — capability tiering (iOS/Android)
 
+> **AŽURIRANO 2026-08-25 (ODLUČENO): Studio mod = AI obrada u oblaku.**
+> Terenski testovi (M340d, X3) pokazali su da on-device pipeline
+> (segmentacija + predložak) ne rješava refleksije na laku, a AI uređivanje
+> slika (Gemini `gemini-3.1-flash-image`, ~4 c/slika, ~0,50 €/auto) daje
+> rezultat "auto iz kataloga": eksterijer dobiva studio pozadinu, interijer
+> zamjenu pogleda kroz stakla + neutralizaciju color casta. Implementacija:
+> edge funkcija `studio-photo` (ključ i promptovi server-side; model je
+> zamjenjiv — adapter princip). **Na uređaju ostaju:** Diskretna (blur)
+> pozadina, detekcija i zamućivanje tablica (radi se PRIJE slanja u oblak),
+> dorada. Original se uvijek čuva; sitne oznake/tekst AI zna iskriviti pa
+> korisnik uvijek vidi prije/poslije i bira. Kotač izbliza, prtljažnik i
+> značajke se u studio modu ne obrađuju. Naplata studio obrade: TBD
+> (sekcija 20). Točke ispod ostaju za on-device slojeve.
+
 - **iOS (17+):** subject lift kroz Vision framework — on-device, besplatno, visoka kvaliteta. Referentna implementacija.
 - **Android (ODLUČENO): "radi na novijim uređajima" — poslovna odluka, ne tehnički kompromis.** Puni foto pipeline (izrezivanje/zamjena pozadine) zahtijeva uređaj sposoban za ML Kit subject segmentation; aplikacija pri startu radi **capability detection**:
   1. Uređaj podržava ML Kit segmentaciju → puni pipeline on-device (kao iOS)
@@ -761,6 +775,8 @@ Obrazac distribucije kroz aktere (dovršava postojeću obitelj): watermark čini
 - [ ] Pravni tekstovi (Uvjeti, Privatnost, Kolačići, Impressum) — finalizacija s odvjetnikom (19.1)
 - [ ] Scenarij i produkcija demo videa aplikacije (19.2)
 - [ ] Javna PDF ekspoze varijanta — rate limiting prag i točan sadržaj (19.3)
+- [ ] Naplata AI studio obrade (4.4, ~0,50 €/auto varijabilni trošak): besplatno uz prihvaćen crosspost? zasebna naplata? uključeno u dealer pretplatu? Odluka mijenja GTM — aplikacija mora ostati besplatan alat (4.5).
+- [ ] AI studio: izbor pružatelja dugoročno (Gemini 3.1 Flash je prvi; adapter princip) + limit troška po korisniku/danu protiv zloupotrebe
 
 ---
 

@@ -30,7 +30,7 @@ export default function PrepScreen() {
   const backgrounds: { key: LookSettings['background']; title: string; desc: string }[] = [
     { key: 'original', title: 'Original', desc: 'Fotografije bez promjene pozadine' },
     { key: 'blur', title: 'Diskretna', desc: 'Pozadina se zamuti, auto ostaje ostar' },
-    { key: 'studio', title: 'Studio', desc: 'Auto u wagen studiju (eksperimentalno)' },
+    { key: 'studio', title: 'Studio', desc: 'AI studio obrada - treba internet, ~15 s po fotografiji' },
   ];
 
   return (
