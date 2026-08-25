@@ -23,7 +23,7 @@ export interface ProcessResult {
   failed: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports -- Metro trazi require() za staticke assete */
 const TEMPLATE_MODULES: Record<string, number> = {
   'ext-front-left': require('../../assets/backgrounds/ext-front-left.jpg') as number,
   'ext-front': require('../../assets/backgrounds/ext-front.jpg') as number,
@@ -32,6 +32,7 @@ const TEMPLATE_MODULES: Record<string, number> = {
   'ext-rear': require('../../assets/backgrounds/ext-rear.jpg') as number,
   'ext-rear-left': require('../../assets/backgrounds/ext-rear-left.jpg') as number,
 };
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 function shotKeyFromUri(uri: string): string | null {
   const match = /\/([a-z-]+)-[0-9a-f]{8}\.jpg$/.exec(uri);
