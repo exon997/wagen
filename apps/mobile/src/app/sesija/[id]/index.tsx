@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, decodeVinLocally } from '@wagen/domain';
-import { getSession, type LocalSession } from '@/lib/sessions';
+import { getSession, updateSession, type LocalSession } from '@/lib/sessions';
+import { decodeVinRemote } from '@/lib/decode';
+import { syncSession } from '@/lib/sync';
 import { detectProcessingCapability, type ProcessingCapability } from '@/lib/capabilities';
 
 const LOOK_LABELS: Record<string, string> = {
@@ -23,7 +25,20 @@ export default function SessionScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (id) void getSession(id).then(setSession);
+      if (!id) return;
+      void getSession(id).then(async (s) => {
+        setSession(s);
+        // Samoizljecenje: VIN postoji, a decode nije uspio (timeout/offline)
+        if (s?.vin && !s.vehicleId) {
+          const info = await decodeVinRemote(s.vin);
+          if (info) {
+            const { vehicleId, ...vehicleInfo } = info;
+            const updated = await updateSession(id, { vehicleInfo, vehicleId });
+            setSession(updated);
+            void syncSession(updated);
+          }
+        }
+      });
       void detectProcessingCapability().then(setCapability);
     }, [id]),
   );

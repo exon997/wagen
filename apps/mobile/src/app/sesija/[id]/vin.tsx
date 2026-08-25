@@ -50,7 +50,7 @@ export default function VinScreen() {
       // E2: server decode (cache + vindata) - kratki timeout, offline ne blokira
       const info = await Promise.race([
         decodeVinRemote(vin),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000)),
       ]);
       if (info) {
         const { vehicleId, ...vehicleInfo } = info;

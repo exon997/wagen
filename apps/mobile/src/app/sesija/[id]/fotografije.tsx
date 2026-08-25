@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors } from '@wagen/domain';
 import { getSession, updateSession, type LocalPhoto, type LocalSession } from '@/lib/sessions';

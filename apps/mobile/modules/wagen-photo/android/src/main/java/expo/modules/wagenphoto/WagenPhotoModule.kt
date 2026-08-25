@@ -187,9 +187,11 @@ class WagenPhotoModule : Module() {
     }
   }
 
-  // Predlozak skaliran i centralno obrezan na dimenzije fotke
+  // Predlozak skaliran i centralno obrezan na dimenzije fotke.
+  // Android release pakira bundlane assete kao asset:/ ili content:/ URI -
+  // decodeFile cita samo file putanje, pa idemo preko streama po shemi.
   private fun loadTemplateScaled(path: String, w: Int, h: Int): Bitmap? {
-    val raw = BitmapFactory.decodeFile(Uri.parse(path).path) ?: return null
+    val raw = decodeAnyUri(path) ?: return null
     val scale = maxOf(w.toFloat() / raw.width, h.toFloat() / raw.height)
     val sw = (raw.width * scale).toInt()
     val sh = (raw.height * scale).toInt()
@@ -197,6 +199,21 @@ class WagenPhotoModule : Module() {
     val x = (sw - w) / 2
     val y = (sh - h) / 2
     return Bitmap.createBitmap(scaled, x.coerceAtLeast(0), y.coerceAtLeast(0), w, h)
+  }
+
+  private fun decodeAnyUri(path: String): Bitmap? {
+    return try {
+      val uri = Uri.parse(path)
+      when (uri.scheme) {
+        null, "file" -> BitmapFactory.decodeFile(uri.path ?: path)
+        "asset" -> appContext.reactContext?.assets?.open((uri.path ?: "").removePrefix("/"))
+          ?.use { BitmapFactory.decodeStream(it) }
+        else -> appContext.reactContext?.contentResolver?.openInputStream(uri)
+          ?.use { BitmapFactory.decodeStream(it) }
+      }
+    } catch (e: Throwable) {
+      null
+    }
   }
 
   // Automatska dorada: blagi kontrast + zasicenje (ColorMatrix)
