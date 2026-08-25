@@ -124,11 +124,13 @@ export default function SessionScreen() {
       {session.photos.length > 0 && (
         <>
           <Pressable style={styles.substep} onPress={() => go('fotografije')}>
-            <Text style={styles.substepText}>Pregled i obrada fotografija →</Text>
+            <Text style={styles.substepText}>Pregled i obrada fotografija</Text>
+            <Text style={styles.substepArrow}>→</Text>
           </Pressable>
           {session.vehicleId && (
             <Pressable style={styles.substep} onPress={() => go('znacajke')}>
-              <Text style={styles.substepText}>Znacajke i oprema →</Text>
+              <Text style={styles.substepText}>Znacajke i oprema</Text>
+              <Text style={styles.substepArrow}>→</Text>
             </Pressable>
           )}
         </>
@@ -171,8 +173,19 @@ const styles = StyleSheet.create({
   stepPrimary: { borderColor: colors.cyan },
   stepLabel: { color: colors.cyan, fontSize: 14, fontWeight: '600', marginBottom: 4 },
   stepValue: { color: colors.white, fontSize: 16 },
-  substep: { paddingVertical: 8, paddingHorizontal: 16, marginBottom: 4 },
-  substepText: { color: colors.gray, fontSize: 14 },
+  substep: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderColor: colors.cyan,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  substepText: { color: colors.cyan, fontSize: 15, fontWeight: '600' },
+  substepArrow: { color: colors.cyan, fontSize: 16, fontWeight: '700' },
   muted: { color: colors.gray, fontSize: 14 },
   capability: { color: colors.gray, fontSize: 12, marginTop: 16 },
   decodeError: { color: '#ff9c9c', fontSize: 12, marginTop: 6 },

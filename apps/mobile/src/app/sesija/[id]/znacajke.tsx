@@ -3,6 +3,7 @@ import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Directory, File, Paths } from 'expo-file-system';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { colors } from '@wagen/domain';
 import { getSupabase } from '@/lib/supabase';
@@ -68,10 +69,29 @@ export default function FeaturesScreen() {
     setBusy(true);
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.9 });
+
+      // Isti 4:3 format kao svi ostali kadrovi (13.1) - centralni crop
+      const targetRatio = 4 / 3;
+      const ratio = photo.width / photo.height;
+      let cropW = photo.width;
+      let cropH = photo.height;
+      if (ratio > targetRatio) cropW = Math.round(photo.height * targetRatio);
+      else cropH = Math.round(photo.width / targetRatio);
+      const context = ImageManipulator.manipulate(photo.uri);
+      context.crop({
+        originX: Math.round((photo.width - cropW) / 2),
+        originY: Math.round((photo.height - cropH) / 2),
+        width: cropW,
+        height: cropH,
+      });
+      if (cropW > 2400) context.resize({ width: 2400 });
+      const rendered = await context.renderAsync();
+      const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
+
       const dir = new Directory(Paths.document, 'sessions', id);
       dir.create({ intermediates: true, idempotent: true });
       const stored = new File(dir, `feature-${activeCode}-${Crypto.randomUUID().slice(0, 8)}.jpg`);
-      await new File(photo.uri).move(stored);
+      await new File(saved.uri).move(stored);
       const local: LocalPhoto = {
         id: Crypto.randomUUID(),
         uri: stored.uri,
@@ -141,13 +161,17 @@ export default function FeaturesScreen() {
         <View style={styles.cameraModal}>
           {permission?.granted ? (
             <>
-              <View style={styles.cameraWrap}>
-                <CameraView ref={setCameraRef} style={StyleSheet.absoluteFill} facing="back" />
-                <Text style={styles.cameraHint}>
-                  {active?.name}
-                  {'\n'}
-                  {active?.hint}
-                </Text>
+              <View style={styles.cameraArea}>
+                {/* Okvir 4:3 - identican formatu svih ostalih fotografija,
+                    da korisnik tocno vidi sto ce se uslikati */}
+                <View style={styles.cameraWrap}>
+                  <CameraView ref={setCameraRef} style={StyleSheet.absoluteFill} facing="back" />
+                  <Text style={styles.cameraHint}>
+                    {active?.name}
+                    {'\n'}
+                    {active?.hint}
+                  </Text>
+                </View>
               </View>
               <View style={styles.cameraControls}>
                 <Pressable onPress={() => setActiveCode(null)}>
@@ -193,7 +217,15 @@ const styles = StyleSheet.create({
   chipHint: { color: colors.gray, fontSize: 12, marginTop: 2 },
   chipThumb: { width: 56, height: 42, borderRadius: 6, marginLeft: 10 },
   cameraModal: { flex: 1, backgroundColor: colors.black },
-  cameraWrap: { flex: 1, margin: 12, borderRadius: 12, overflow: 'hidden' },
+  cameraArea: { flex: 1, justifyContent: 'center', paddingHorizontal: 12 },
+  cameraWrap: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderColor: colors.gray,
+    borderWidth: 1,
+  },
   cameraHint: {
     position: 'absolute',
     bottom: 12,

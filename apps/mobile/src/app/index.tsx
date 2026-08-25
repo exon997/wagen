@@ -1,39 +1,39 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
-import { createSession, type SessionMode } from '@/lib/sessions';
+import { createSession } from '@/lib/sessions';
 import { clearLastCrash, getLastCrash } from '@/lib/crash-log';
 import { syncSession } from '@/lib/sync';
 
 /**
- * Home: dva ulaza, jedan pipeline (4.2). Ulazni mod odredjuje default
- * izlaza - foto mod dijeli fotografije, oglasni mod objavljuje na wagen.hr.
+ * Home: JEDAN ulaz (terenska odluka 2026-08-25 - dva ulaza radila su
+ * identicno i zbunjivala). Mod je 'photo'; hoce li fotografije zavrsiti
+ * samo u galeriji ili i kao oglas, korisnik bira na kraju flowa (J1).
  */
 export default function HomeScreen() {
   const router = useRouter();
   const [crash, setCrash] = useState<string | null>(null);
 
   useEffect(() => {
-    void getLastCrash().then((c) =>
-      setCrash(
-        c
-          ? `
-`
-          : null,
-      ),
-    );
+    void getLastCrash().then((c) => setCrash(c ? `${c.at}${c.fatal ? ' (fatal)' : ''}\n${c.error}` : null));
   }, []);
 
-  const start = async (mode: SessionMode) => {
-    const session = await createSession(mode);
+  const start = async () => {
+    const session = await createSession('photo');
     void syncSession(session);
     router.push({ pathname: '/sesija/[id]', params: { id: session.id } });
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.brand}>wagen</Text>
+      <Image
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro trazi require() za staticke assete
+        source={require('../../assets/brand-logo-white.png')}
+        style={styles.brand}
+        resizeMode="contain"
+        accessibilityLabel="wagen"
+      />
 
       {crash && (
         <ScrollView style={styles.crashBox}>
@@ -51,21 +51,14 @@ export default function HomeScreen() {
       )}
 
       <Pressable
-        style={[styles.entry, styles.entryPrimary]}
-        onPress={() => void start('photo')}
-        accessibilityLabel="Fotografiraj vozilo"
-      >
-        <Text style={styles.entryTitle}>Fotografiraj vozilo</Text>
-        <Text style={styles.entrySubtitle}>Profesionalne fotografije tvog auta, besplatno</Text>
-      </Pressable>
-
-      <Pressable
         style={styles.entry}
-        onPress={() => void start('listing')}
-        accessibilityLabel="Predaj oglas"
+        onPress={() => void start()}
+        accessibilityLabel="Fotografiraj auto"
       >
-        <Text style={styles.entryTitle}>Predaj oglas</Text>
-        <Text style={styles.entrySubtitle}>VIN sken, fotografije i objava u par minuta</Text>
+        <Text style={styles.entryTitle}>Fotografiraj auto</Text>
+        <Text style={styles.entrySubtitle}>
+          Od broja sasije do profesionalnih fotografija u par minuta - besplatno
+        </Text>
       </Pressable>
     </View>
   );
@@ -73,17 +66,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black, padding: 24, justifyContent: 'center' },
-  brand: { color: colors.white, fontSize: 40, fontWeight: '700', marginBottom: 48 },
+  brand: { width: 180, height: 44, marginBottom: 48, alignSelf: 'flex-start' },
   entry: {
-    borderColor: colors.gray,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.cyan,
+    borderRadius: 14,
+    padding: 22,
   },
-  entryPrimary: { borderColor: colors.cyan, backgroundColor: '#0a1a1c' },
-  entryTitle: { color: colors.white, fontSize: 20, fontWeight: '600' },
-  entrySubtitle: { color: colors.gray, fontSize: 14, marginTop: 4 },
+  entryTitle: { color: colors.black, fontSize: 22, fontWeight: '700' },
+  entrySubtitle: { color: '#053b40', fontSize: 14, marginTop: 6 },
   crashBox: {
     maxHeight: 220,
     borderColor: '#FF5555',
