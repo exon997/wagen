@@ -246,6 +246,38 @@ Referentni model: **avto.net**.
 
 ## 9. Paketi i cjenik za trgovce
 
+> **AŽURIRANO 2026-08-25 (ODLUČENO): Dealer-first monetizacija AI foto alata.**
+> AI studio obrada (4.4) pokazala se na razini za koju trgovci plaćaju —
+> postaje samostalni plaćeni proizvod za trgovce **prije** launcha weba:
+>
+> - **Uvodna cijena: 79 €/mj neto po salonu, flat** — uključuje AI studio
+>   obradu cijele zalihe (fair-use limit TBD, sekcija 20), individualiziranu
+>   pozadinu s logom salona na zidu (jednom generirana/dizajnirana po
+>   trgovcu, referentna slika u AI pipelineu) i brandirane reklamne tablice
+>   (deterministički overlay grafike salona preko regije tablice — bez AI-a,
+>   piksel-točno).
+> - **Konkurentska referenca (istraženo 2026-08-25):** CarPeak (part of
+>   Preskok, kao i AutoBrief) naplaćuje **po vozilu**: Basic 5,20 €, Plus
+>   (logo, premium pozadine) 7,20 €; uz AutoBrief pretplatu (Starter
+>   59,95 €/mj, Pro 109,95 €/mj) pada na 2,34–5,61 €/vozilu. Trgovac s
+>   ~30 vozila/mj kod njih plaća ~230 €/mj — wagen flat 79 € je ~3×
+>   jeftiniji, uz varijabilni trošak ~0,50 €/vozilu (margina ~80 %).
+> - **Objava oglasa za trgovce: outbound adapteri za Njuškalo i Index
+>   oglasi** (kroz trgovčev račun/feed; pakete portala trgovac i dalje
+>   plaća portalima). Facebook Marketplace odbačen — službeni API za
+>   vozila ugašen 2023.
+> - **Kokpit-lite (centralna zaliha, 18.1) povlači se ispred launcha weba.**
+> - **Posljedica za 12.1:** AutoBrief/CarPeak prestaju biti partner i
+>   postaju direktna konkurencija — na suradnju se ne računa; adapter za
+>   uvoz ostaje u backlogu za trgovce koji AutoBrief već koriste.
+> - **Prvi design partner:** salon s 120+ rabljenih vozila (kontakt
+>   vlasnika), pilot po uvodnoj cijeni.
+> - Privatni oglašivači: aplikacija ostaje besplatan alat (4.5); naplata
+>   studija za privatne ostaje TBD (sekcija 20).
+>
+> Struktura paketa ispod (9.1–9.3) je za **oglasnik** (web launch) i
+> ostaje na snazi; 79 € foto alat je zaseban proizvod koji joj prethodi.
+
 ### 9.1 Princip
 Tri jasno diferencirana paketa (Basic / Premium / Ultimate) — psihološki najefikasnija struktura za odluku o kupnji. Cijene prikazane **neto (bez PDV-a)**, PDV se dodaje na prikazanu cijenu — konzistentno s praksom na avto.net.
 
@@ -350,6 +382,13 @@ Dvoslojni sustav:
 ## 12. DMS ingest — arhitektura sinkronizacije za trgovce
 
 ### 12.1 Kontekst
+
+> **AŽURIRANO 2026-08-25:** dealer-first pivot (sekcija 9) mijenja odnos —
+> AutoBrief/CarPeak su **konkurencija**, ne partner. Adapter za uvoz iz
+> AutoBriefa ostaje u backlogu (trgovci koji ga koriste), ali se ne računa
+> na suradnju s njihove strane. Prioritet dobivaju **outbound adapteri**
+> (objava na Njuškalo i Index oglasi) kroz isti adapter pattern.
+
 - **AutoBrief** = prvi integracijski partner (pregovori u tijeku). U Hrvatskoj ga koristi manji broj, ali većih trgovaca (npr. TransAuto); AutoBrief se u pravilu prilagođava oglasnicima i trenutno je povezan s Njuškalom i Index oglasima. Ulazak u njihov sustav = automatski pristup zalihama velikih trgovaca.
 - **AutoBrief je prvi adapter, ne API.** Ingest se gradi kroz postojeći adapter pattern (tehnički stack, sekcija 1) — vlastiti kanonski model oglasa, po jedan adapter po izvoru.
 
@@ -775,7 +814,11 @@ Obrazac distribucije kroz aktere (dovršava postojeću obitelj): watermark čini
 - [ ] Pravni tekstovi (Uvjeti, Privatnost, Kolačići, Impressum) — finalizacija s odvjetnikom (19.1)
 - [ ] Scenarij i produkcija demo videa aplikacije (19.2)
 - [ ] Javna PDF ekspoze varijanta — rate limiting prag i točan sadržaj (19.3)
-- [ ] Naplata AI studio obrade (4.4, ~0,50 €/auto varijabilni trošak): besplatno uz prihvaćen crosspost? zasebna naplata? uključeno u dealer pretplatu? Odluka mijenja GTM — aplikacija mora ostati besplatan alat (4.5).
+- [x] ~~Naplata AI studio obrade — trgovci~~ **RIJEŠENO 2026-08-25 (sekcija 9): dealer foto alat 79 €/mj neto flat po salonu, s individualiziranom pozadinom i brandiranim tablicama.**
+- [ ] Naplata AI studio obrade — **privatni** oglašivači (besplatno uz prihvaćen crosspost? zasebna naplata?): aplikacija mora ostati besplatan alat (4.5)
+- [ ] Fair-use limit za dealer flat 79 €/mj (prijedlog: 100 obrađenih vozila/mj, iznad toga dogovor)
+- [ ] Njuškalo/Index outbound: tehnički kanal po portalu (feed? API? trgovčev račun?) — istražiti uvjete pristupa prije gradnje adaptera
+- [ ] Ime i pozicioniranje dealer foto proizvoda (dio wagen.hr brenda ili zaseban naziv?)
 - [ ] AI studio: izbor pružatelja dugoročno (Gemini 3.1 Flash je prvi; adapter princip) + limit troška po korisniku/danu protiv zloupotrebe
 
 ---
