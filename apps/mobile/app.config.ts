@@ -40,6 +40,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     [
+      'expo-media-library',
+      {
+        savePhotosPermission: 'wagen sprema obradjene fotografije vozila u tvoju galeriju.',
+      },
+    ],
+    [
       'expo-camera',
       {
         cameraPermission: 'wagen koristi kameru za VIN sken i fotografiranje vozila.',

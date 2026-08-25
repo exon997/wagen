@@ -43,6 +43,16 @@ export interface LocalSession {
   updatedAt: string;
 }
 
+// Sva citaj-izmijeni-pisi azuriranja idu kroz red - paralelni capture i
+// upload marking su se medjusobno gazili (izgubljeni remotePath -> fotke
+// 'cekaju upload' zauvijek i re-uploadaju se).
+let writeQueue: Promise<unknown> = Promise.resolve();
+function serialized<T>(fn: () => Promise<T>): Promise<T> {
+  const next = writeQueue.then(fn, fn);
+  writeQueue = next.catch(() => undefined);
+  return next;
+}
+
 const INDEX_KEY = 'wagen.sessions.index';
 const keyFor = (id: string) => `wagen.session.${id}`;
 
@@ -73,19 +83,43 @@ export async function getSession(id: string): Promise<LocalSession | null> {
   return raw ? (JSON.parse(raw) as LocalSession) : null;
 }
 
-export async function updateSession(
+export function updateSession(
   id: string,
   patch: Partial<Omit<LocalSession, 'id' | 'createdAt'>>,
 ): Promise<LocalSession> {
-  const existing = await getSession(id);
-  if (!existing) throw new Error(`Sesija ${id} ne postoji`);
-  const next: LocalSession = { ...existing, ...patch, updatedAt: new Date().toISOString() };
-  await AsyncStorage.setItem(keyFor(id), JSON.stringify(next));
-  return next;
+  return serialized(async () => {
+    const existing = await getSession(id);
+    if (!existing) throw new Error('Sesija ' + id + ' ne postoji');
+    const next: LocalSession = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    await AsyncStorage.setItem(keyFor(id), JSON.stringify(next));
+    return next;
+  });
 }
 
 export async function listSessions(): Promise<LocalSession[]> {
   const index = await readIndex();
   const sessions = await Promise.all(index.map(getSession));
   return sessions.filter((s): s is LocalSession => s !== null);
+}
+
+/**
+ * Atomarna izmjena: citanje + transformacija + pisanje unutar reda.
+ * Za azuriranja koja ovise o trenutnom stanju (oznacavanje uploada) -
+ * obicni updateSession s izvana procitanim stanjem gubi tudje izmjene.
+ */
+export function mutateSession(
+  id: string,
+  fn: (current: LocalSession) => Partial<Omit<LocalSession, 'id' | 'createdAt'>>,
+): Promise<LocalSession> {
+  return serialized(async () => {
+    const existing = await getSession(id);
+    if (!existing) throw new Error('Sesija ' + id + ' ne postoji');
+    const next: LocalSession = {
+      ...existing,
+      ...fn(existing),
+      updatedAt: new Date().toISOString(),
+    };
+    await AsyncStorage.setItem(keyFor(id), JSON.stringify(next));
+    return next;
+  });
 }

@@ -62,7 +62,19 @@ export default function VinScreen() {
     setBusy(true);
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.8 });
-      const { vin, candidates } = await scanVinFromImage(photo.uri);
+      // Prvi ML Kit poziv zna zapeti na inicijalizaciji modela - timeout + retry
+      const result = await Promise.race([
+        scanVinFromImage(photo.uri),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
+      ]);
+      if (!result) {
+        Alert.alert(
+          'Prepoznavanje je zapelo',
+          'Pokusaj ponovno - drugi pokusaj obicno radi odmah.',
+        );
+        return;
+      }
+      const { vin, candidates } = result;
       if (vin) {
         setManualVin(vin);
         setScanning(false);

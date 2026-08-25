@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors } from '@wagen/domain';
@@ -26,6 +26,7 @@ export default function PhotosScreen() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState('');
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   // I2: segmentacija + blur pozadine na eksterijeru; original se cuva
   const processAll = async () => {
@@ -66,15 +67,20 @@ export default function PhotosScreen() {
         return;
       }
       let saved = 0;
+      let firstError: string | null = null;
       for (const photo of session.photos) {
         try {
           await MediaLibrary.saveToLibraryAsync(photo.processedUri ?? photo.uri);
           saved += 1;
         } catch (e) {
-          console.warn('Spremanje fotke nije uspjelo:', e);
+          if (!firstError) firstError = e instanceof Error ? e.message : String(e);
         }
       }
-      Alert.alert('Spremljeno', `${saved} od ${session.photos.length} fotografija je u galeriji.`);
+      const errorSuffix = firstError ? `\n\nGreska: ${firstError}` : '';
+      Alert.alert(
+        saved > 0 ? 'Spremljeno' : 'Spremanje nije uspjelo',
+        `${saved} od ${session.photos.length} fotografija je u galeriji.${errorSuffix}`,
+      );
     } finally {
       setSaving(false);
     }
@@ -152,11 +158,13 @@ export default function PhotosScreen() {
         ListEmptyComponent={<Text style={styles.muted}>Jos nema fotografija.</Text>}
         renderItem={({ item, index }) => (
           <View style={styles.cell}>
-            <Image
-              source={{ uri: item.processedUri ?? item.uri }}
-              style={styles.thumb}
-              resizeMode="cover"
-            />
+            <Pressable onPress={() => setViewerUri(item.processedUri ?? item.uri)}>
+              <Image
+                source={{ uri: item.processedUri ?? item.uri }}
+                style={styles.thumb}
+                resizeMode="cover"
+              />
+            </Pressable>
             <View style={styles.meta}>
               <Text style={styles.angle}>
                 {item.angleCategory ? (ANGLE_LABELS[item.angleCategory] ?? '') : '—'}
@@ -178,6 +186,20 @@ export default function PhotosScreen() {
           </View>
         )}
       />
+
+      <Modal
+        visible={!!viewerUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerUri(null)}
+      >
+        <Pressable style={styles.viewer} onPress={() => setViewerUri(null)}>
+          {viewerUri && (
+            <Image source={{ uri: viewerUri }} style={styles.viewerImage} resizeMode="contain" />
+          )}
+          <Text style={styles.viewerHint}>Dodirni za zatvaranje</Text>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -207,6 +229,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   saveButtonBusy: { opacity: 0.5 },
+  viewer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerImage: { width: '100%', height: '86%' },
+  viewerHint: { color: colors.gray, fontSize: 12, marginTop: 8 },
   processButton: {
     borderColor: colors.cyan,
     borderWidth: 1,

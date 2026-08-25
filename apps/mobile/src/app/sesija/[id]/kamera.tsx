@@ -41,16 +41,17 @@ export default function CameraScreen() {
     };
   }, []);
 
-  // Libela: rotacija uredjaja u stupnjevima (gamma = roll u landscapeu)
+  // Libela iz vektora gravitacije - radi u obje landscape orijentacije:
+  // roll = nagib horizonta (oko osi gledanja), pitch = nagib gore-dolje.
+  // Uspravan landscape telefon: gravitacija uz dugu os -> oba kuta ~0.
   useEffect(() => {
-    DeviceMotion.setUpdateInterval(200);
+    DeviceMotion.setUpdateInterval(150);
     const sub = DeviceMotion.addListener((m) => {
-      if (m.rotation) {
-        // U landscapeu je beta naklon oko duge osi (roll horizonta)
-        setTilt({
-          roll: (m.rotation.beta * 180) / Math.PI,
-          pitch: (m.rotation.gamma * 180) / Math.PI,
-        });
+      const g = m.accelerationIncludingGravity;
+      if (g && (g.x !== 0 || g.y !== 0 || g.z !== 0)) {
+        const roll = (Math.atan2(g.y, Math.abs(g.x)) * 180) / Math.PI;
+        const pitch = (Math.atan2(g.z, Math.hypot(g.x, g.y)) * 180) / Math.PI;
+        setTilt({ roll, pitch });
       }
     });
     return () => sub.remove();
@@ -120,7 +121,7 @@ export default function CameraScreen() {
     );
   }
 
-  const levelOk = tilt ? Math.abs(tilt.roll) < 2 : false;
+  const levelOk = tilt ? Math.abs(tilt.roll) < 2 && Math.abs(tilt.pitch) < 6 : false;
 
   return (
     <View style={styles.container}>
@@ -178,14 +179,16 @@ export default function CameraScreen() {
       {/* Desna traka: libela + okidac */}
       <View style={styles.rightRail}>
         <View style={styles.level}>
+          <View style={styles.levelCrossH} />
+          <View style={styles.levelCrossV} />
           <View
             style={[
               styles.levelDot,
               { backgroundColor: levelOk ? colors.cyan : '#FF5555' },
               tilt && {
                 transform: [
-                  { translateX: Math.max(-14, Math.min(14, (tilt.pitch ?? 0) * 1.5)) },
-                  { translateY: Math.max(-14, Math.min(14, (tilt.roll ?? 0) * 1.5)) },
+                  { translateX: Math.max(-18, Math.min(18, tilt.pitch * 2)) },
+                  { translateY: Math.max(-18, Math.min(18, tilt.roll * 2)) },
                 ],
               },
             ]}
@@ -273,6 +276,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   levelDot: { width: 10, height: 10, borderRadius: 5 },
+  levelCrossH: {
+    position: 'absolute',
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  levelCrossV: {
+    position: 'absolute',
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
   levelText: { position: 'absolute', bottom: -18, color: colors.gray, fontSize: 10 },
   shutter: {
     width: 78,

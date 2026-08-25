@@ -82,15 +82,15 @@ async function syncPhotos(session: LocalSession, userId: string): Promise<void> 
   }
 
   if (uploaded.length > 0) {
-    // Oznaci uploadane u lokalnoj sesiji da se ne salju ponovno
-    const { getSession, updateSession } = await import('@/lib/sessions');
-    const current = await getSession(session.id);
-    if (!current) return;
-    const marked = current.photos.map((p) => {
-      const hit = uploaded.find((u) => u.photo.id === p.id);
-      return hit ? { ...p, remotePath: hit.remotePath } : p;
-    });
-    await updateSession(session.id, { photos: marked });
+    // Atomarno oznaci uploadane - mutateSession cita SVJEZE stanje unutar
+    // reda pisanja pa paralelni capture ne gubi oznake
+    const { mutateSession } = await import('@/lib/sessions');
+    await mutateSession(session.id, (current) => ({
+      photos: current.photos.map((p) => {
+        const hit = uploaded.find((u) => u.photo.id === p.id);
+        return hit ? { ...p, remotePath: hit.remotePath } : p;
+      }),
+    }));
   }
 }
 
