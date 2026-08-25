@@ -11,6 +11,10 @@ import type { VehicleInfo } from '@/lib/sessions';
 
 export interface RemoteDecode extends VehicleInfo {
   vehicleId: string;
+  /** Kanonski VIN iz baze - moze se razlikovati od trazenog (OCR ispravak). */
+  vin: string | null;
+  /** Postavljen kad je server ispravio OCR zamjenu znaka (npr. Z umjesto 2). */
+  correctedFrom: string | null;
 }
 
 export interface DecodeOutcome {
@@ -56,6 +60,7 @@ async function doDecode(vin: string): Promise<DecodeOutcome> {
     const payload = data as {
       source?: string;
       vehicle?: Record<string, unknown> | null;
+      corrected_from?: string;
     } | null;
     if (payload?.source === 'not_found' || payload?.source === 'iso_fallback') {
       logEvent('vin_decode_miss', { vin, source: payload.source ?? '' });
@@ -72,9 +77,17 @@ async function doDecode(vin: string): Promise<DecodeOutcome> {
       return fail(`neocekivan odgovor servera: ${JSON.stringify(data ?? null).slice(0, 140)}`);
     }
 
+    if (payload?.corrected_from) {
+      logEvent('vin_ocr_corrected', {
+        from: payload.corrected_from,
+        to: typeof vehicle['vin'] === 'string' ? vehicle['vin'] : '',
+      });
+    }
     return {
       info: {
         vehicleId: vehicle['id'],
+        vin: typeof vehicle['vin'] === 'string' ? vehicle['vin'] : null,
+        correctedFrom: payload?.corrected_from ?? null,
         make: vehicle['make'],
         model: vehicle['model'],
         engineLabel: typeof vehicle['engine_label'] === 'string' ? vehicle['engine_label'] : null,

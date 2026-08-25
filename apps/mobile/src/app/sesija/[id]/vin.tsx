@@ -56,8 +56,19 @@ export default function VinScreen() {
         ),
       ]);
       if (outcome.info) {
-        const { vehicleId, ...vehicleInfo } = outcome.info;
-        updated = await updateSession(id, { vehicleInfo, vehicleId, vinLookupMiss: false });
+        const { vehicleId, vin: canonicalVin, correctedFrom, ...vehicleInfo } = outcome.info;
+        updated = await updateSession(id, {
+          vehicleInfo,
+          vehicleId,
+          vinLookupMiss: false,
+          ...(canonicalVin && canonicalVin !== vin ? { vin: canonicalVin } : {}),
+        });
+        if (correctedFrom && canonicalVin) {
+          Alert.alert(
+            'VIN ispravljen',
+            `Sken je zamijenio slican znak (npr. 2 i Z). Ispravan VIN:\n${canonicalVin}\n\nPrepoznato: ${vehicleInfo.make} ${vehicleInfo.model} - provjeri da odgovara vozilu.`,
+          );
+        }
       } else if ('miss' in outcome && outcome.miss) {
         updated = await updateSession(id, { vinLookupMiss: true });
         Alert.alert(

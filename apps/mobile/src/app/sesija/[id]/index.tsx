@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, decodeVinLocally } from '@wagen/domain';
 import { getSession, updateSession, type LocalSession } from '@/lib/sessions';
@@ -34,11 +34,21 @@ export default function SessionScreen() {
         if (s?.vin && !s.vehicleId && !s.vinLookupMiss) {
           const { info, error, miss } = await decodeVinRemote(s.vin);
           if (info) {
-            const { vehicleId, ...vehicleInfo } = info;
-            const updated = await updateSession(id, { vehicleInfo, vehicleId });
+            const { vehicleId, vin: canonicalVin, correctedFrom, ...vehicleInfo } = info;
+            const updated = await updateSession(id, {
+              vehicleInfo,
+              vehicleId,
+              ...(canonicalVin && canonicalVin !== s.vin ? { vin: canonicalVin } : {}),
+            });
             setSession(updated);
             setDecodeError(null);
             void syncSession(updated);
+            if (correctedFrom && canonicalVin) {
+              Alert.alert(
+                'VIN ispravljen',
+                `Sken je bio zamijenio slican znak (npr. 2 i Z). Ispravan VIN:\n${canonicalVin}\n\nPrepoznato: ${vehicleInfo.make} ${vehicleInfo.model} - provjeri da odgovara vozilu.`,
+              );
+            }
           } else if (miss) {
             const updated = await updateSession(id, { vinLookupMiss: true });
             setSession(updated);
