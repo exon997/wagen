@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { KokpitPrijava } from './prijava';
 
@@ -33,7 +34,7 @@ export default async function KokpitPage() {
   const { data: sessions } = await supabase
     .from('photo_sessions')
     .select(
-      'id, vin, created_at, studio_processed_at, vehicles (make, model, engine_label, model_year), photo_session_photos (storage_path, sort_order)',
+      'id, vin, created_at, studio_processed_at, listing_id, listings (status, price_current), vehicles (make, model, engine_label, model_year), photo_session_photos (storage_path, sort_order)',
     )
     .eq('dealer_id', dealer.dealer_id)
     .order('created_at', { ascending: false })
@@ -75,7 +76,8 @@ export default async function KokpitPage() {
             <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
               <th style={cell}>Fotografija</th>
               <th style={cell}>Vozilo</th>
-              <th style={cell}>VIN</th>
+              <th style={cell}>Cijena</th>
+              <th style={cell}>Status</th>
               <th style={cell}>Fotki</th>
               <th style={cell}>Studio</th>
               <th style={cell}>Snimljeno</th>
@@ -84,6 +86,14 @@ export default async function KokpitPage() {
           <tbody>
             {rows.map((r) => {
               const v = r.vehicles;
+              const statusLabel =
+                r.listings?.status === 'sold'
+                  ? 'Prodano'
+                  : r.listings?.status === 'active'
+                    ? 'Spremno'
+                    : r.listing_id
+                      ? 'U pripremi'
+                      : '—';
               return (
                 <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={cell}>
@@ -99,11 +109,27 @@ export default async function KokpitPage() {
                     )}
                   </td>
                   <td style={cell}>
-                    {v
-                      ? `${v.make} ${v.model}${v.engine_label ? ` ${v.engine_label}` : ''}${v.model_year ? ` · ${v.model_year}.` : ''}`
-                      : 'Neprepoznato vozilo'}
+                    {r.listing_id ? (
+                      <Link href={`/kokpit/vozilo/${r.id}`}>
+                        {v
+                          ? `${v.make} ${v.model}${v.engine_label ? ` ${v.engine_label}` : ''}${v.model_year ? ` · ${v.model_year}.` : ''}`
+                          : 'Neprepoznato vozilo'}
+                      </Link>
+                    ) : v ? (
+                      `${v.make} ${v.model}`
+                    ) : (
+                      'Neprepoznato vozilo'
+                    )}
+                    <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#777' }}>
+                      {r.vin ?? ''}
+                    </div>
                   </td>
-                  <td style={{ ...cell, fontFamily: 'monospace', fontSize: 13 }}>{r.vin ?? '—'}</td>
+                  <td style={{ ...cell, fontWeight: 700 }}>
+                    {r.listings?.price_current != null
+                      ? `€${r.listings.price_current.toLocaleString('de-DE')},-`
+                      : '—'}
+                  </td>
+                  <td style={cell}>{statusLabel}</td>
                   <td style={cell}>{r.photoCount}</td>
                   <td style={cell}>{r.studio_processed_at ? '✓' : '—'}</td>
                   <td style={cell}>{new Date(r.created_at).toLocaleDateString('hr-HR')}</td>
