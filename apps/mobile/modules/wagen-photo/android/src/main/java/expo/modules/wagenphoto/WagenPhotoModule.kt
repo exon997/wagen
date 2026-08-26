@@ -123,6 +123,45 @@ class WagenPhotoModule : Module() {
       }
     }
 
+    // Faza A (9): brandirane tablice salona - grafika se deterministicki
+    // crta preko zadanih regija (istih koje bi inace dobile blur). Bez AI-a:
+    // logo salona mora biti piksel-tocan na svakoj fotografiji.
+    AsyncFunction("overlayRegions") { uriString: String, rects: List<Map<String, Double>>, overlayUri: String, promise: Promise ->
+      val context = appContext.reactContext
+        ?: return@AsyncFunction promise.reject(CodedException("NO_CONTEXT", "Nema konteksta", null))
+      try {
+        val source = decodeAnyUri(uriString)
+          ?: return@AsyncFunction promise.reject(
+            CodedException("DECODE_FAILED", "Fotografija se ne moze ucitati", null)
+          )
+        val overlay = decodeAnyUri(overlayUri)
+          ?: return@AsyncFunction promise.reject(
+            CodedException("OVERLAY_FAILED", "Grafika tablice se ne moze ucitati", null)
+          )
+        val mutable = source.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutable)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        for (rect in rects) {
+          val left = (rect["left"] ?: 0.0).toFloat()
+          val top = (rect["top"] ?: 0.0).toFloat()
+          val w = (rect["width"] ?: 0.0).toFloat()
+          val h = (rect["height"] ?: 0.0).toFloat()
+          if (w <= 4f || h <= 4f) continue
+          // Blaga margina da grafika sigurno pokrije rub originalne tablice
+          val pad = h * 0.12f
+          val dst = android.graphics.RectF(left - pad, top - pad, left + w + pad, top + h + pad)
+          canvas.drawBitmap(overlay, null, dst, paint)
+        }
+        val outFile = File.createTempFile("wagen-plates-", ".jpg", context.cacheDir)
+        FileOutputStream(outFile).use { fos ->
+          mutable.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+        }
+        promise.resolve("file://${outFile.absolutePath}")
+      } catch (e: Throwable) {
+        promise.reject(CodedException("OVERLAY_REGIONS_FAILED", e.message ?: "Overlay pao", e))
+      }
+    }
+
     AsyncFunction("processPhoto") { uriString: String, options: Map<String, Any?>, promise: Promise ->
       val context = appContext.reactContext
         ?: return@AsyncFunction promise.reject(CodedException("NO_CONTEXT", "Nema konteksta", null))

@@ -11,6 +11,11 @@ interface WagenPhotoNative {
     uri: string,
     rects: { left: number; top: number; width: number; height: number }[],
   ): Promise<string>;
+  overlayRegions(
+    uri: string,
+    rects: { left: number; top: number; width: number; height: number }[],
+    overlayUri: string,
+  ): Promise<string>;
 }
 
 export default requireNativeModule<WagenPhotoNative>('WagenPhoto');

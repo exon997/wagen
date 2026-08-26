@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
 import { createSession } from '@/lib/sessions';
 import { clearLastCrash, getLastCrash } from '@/lib/crash-log';
+import { getCachedDealerContext, refreshDealerContext, type DealerContext } from '@/lib/dealer';
 import { syncSession } from '@/lib/sync';
 
 /**
@@ -14,13 +15,21 @@ import { syncSession } from '@/lib/sync';
 export default function HomeScreen() {
   const router = useRouter();
   const [crash, setCrash] = useState<string | null>(null);
+  const [dealer, setDealer] = useState<DealerContext | null>(null);
 
   useEffect(() => {
     void getLastCrash().then((c) => setCrash(c ? `${c.at}${c.fatal ? ' (fatal)' : ''}\n${c.error}` : null));
+    void refreshDealerContext().then(setDealer);
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void getCachedDealerContext().then(setDealer);
+    }, []),
+  );
+
   const start = async () => {
-    const session = await createSession('photo');
+    const session = await createSession('photo', dealer?.dealerId ?? null);
     void syncSession(session);
     router.push({ pathname: '/sesija/[id]', params: { id: session.id } });
   };
@@ -57,7 +66,15 @@ export default function HomeScreen() {
       >
         <Text style={styles.entryTitle}>Fotografiraj auto</Text>
         <Text style={styles.entrySubtitle}>
-          Od broja sasije do profesionalnih fotografija u par minuta - besplatno
+          {dealer
+            ? `Brandirano za ${dealer.displayName}`
+            : 'Od broja sasije do profesionalnih fotografija u par minuta - besplatno'}
+        </Text>
+      </Pressable>
+
+      <Pressable style={styles.salonLink} onPress={() => router.push('/salon')}>
+        <Text style={styles.salonLinkText}>
+          {dealer ? `Salon: ${dealer.displayName} →` : 'Imate salon? Prijava za trgovce →'}
         </Text>
       </Pressable>
     </View>
@@ -85,4 +102,6 @@ const styles = StyleSheet.create({
   crashTitle: { color: '#FF5555', fontWeight: '700', marginBottom: 6 },
   crashText: { color: colors.white, fontSize: 11, fontFamily: 'monospace' },
   crashDismiss: { color: colors.cyan, marginTop: 10 },
+  salonLink: { marginTop: 20, alignSelf: 'flex-start', paddingVertical: 8 },
+  salonLinkText: { color: colors.gray, fontSize: 14 },
 });

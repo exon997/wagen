@@ -30,6 +30,7 @@ export async function syncSession(session: LocalSession): Promise<void> {
       status: session.status,
       vin: session.vin,
       vehicle_id: session.vehicleId ?? null,
+      dealer_id: session.dealerId ?? null,
     },
     { onConflict: 'id' },
   );

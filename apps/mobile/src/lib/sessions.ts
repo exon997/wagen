@@ -50,6 +50,8 @@ export interface LocalSession {
   vehicleId?: string | null;
   /** Dobavljac NEMA ovaj VIN (starija vozila) - samoizljecenje ne ponavlja. */
   vinLookupMiss?: boolean;
+  /** Salon za koji se slika (dealer mod, Faza A); null/undefined = privatno. */
+  dealerId?: string | null;
   /** Priprema: odabrani izgled fotografija (2. korak flowa). */
   look?: LookSettings;
   photos: LocalPhoto[];
@@ -75,13 +77,17 @@ async function readIndex(): Promise<string[]> {
   return raw ? (JSON.parse(raw) as string[]) : [];
 }
 
-export async function createSession(mode: SessionMode): Promise<LocalSession> {
+export async function createSession(
+  mode: SessionMode,
+  dealerId?: string | null,
+): Promise<LocalSession> {
   const now = new Date().toISOString();
   const session: LocalSession = {
     id: Crypto.randomUUID(),
     mode,
     status: 'in_progress',
     vin: null,
+    ...(dealerId ? { dealerId } : {}),
     photos: [],
     createdAt: now,
     updatedAt: now,

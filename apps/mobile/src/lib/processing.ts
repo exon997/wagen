@@ -13,6 +13,7 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import { detectProcessingCapability } from '@/lib/capabilities';
+import { getCachedDealerContext, type DealerContext } from '@/lib/dealer';
 import { logEvent } from '@/lib/events';
 import { findPlateRegions } from '@/lib/plates';
 import { getSupabase } from '@/lib/supabase';
@@ -52,6 +53,7 @@ async function studioCloud(
   uri: string,
   kind: 'exterior' | 'interior',
   shotKey: string,
+  sessionId: string,
 ): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -60,7 +62,10 @@ async function studioCloud(
     const image = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    const invocation = supabase.functions.invoke('studio-photo', { body: { image, kind } });
+    // sessionId nosi dealer kontekst (branding + fair-use) - server je istina
+    const invocation = supabase.functions.invoke('studio-photo', {
+      body: { image, kind, sessionId },
+    });
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('isteklo vrijeme (90 s)')), STUDIO_CLOUD_TIMEOUT_MS),
     );
@@ -99,29 +104,29 @@ async function processOne(
   photo: LocalPhoto,
   look: LookSettings,
   capability: 'full' | 'blur_only',
+  sessionId: string,
+  dealer: DealerContext | null,
 ): Promise<string | null> {
   const { WagenPhoto } = await import('../../modules/wagen-photo');
 
   const shotKey = shotKeyFromUri(photo.uri) ?? 'nepoznat';
 
-  // I4: sakrij registarske oznake (radi na svim uredjajima)
+  // I4: sakrij registarske oznake (radi na svim uredjajima). Salon s
+  // grafikom tablice dobiva deterministicki overlay umjesto blura (9).
   let workingUri = photo.uri;
-  if (look.hidePlates && photo.angleCategory === 'exterior') {
+  if (look.hidePlates) {
+    const isExterior = photo.angleCategory === 'exterior';
     try {
       const plates = await findPlateRegions(photo.uri);
-      logEvent('plates_detected', { shot: shotKey, count: plates.length });
+      if (isExterior) logEvent('plates_detected', { shot: shotKey, count: plates.length });
       if (plates.length > 0) {
-        workingUri = await WagenPhoto.blurRegions(photo.uri, plates);
+        workingUri = dealer?.plateOverlayUri
+          ? await WagenPhoto.overlayRegions(photo.uri, plates, dealer.plateOverlayUri)
+          : await WagenPhoto.blurRegions(photo.uri, plates);
       }
     } catch (e) {
-      logEvent('plates_error', { shot: shotKey, error: String(e).slice(0, 160) });
-    }
-  } else if (look.hidePlates) {
-    try {
-      const plates = await findPlateRegions(photo.uri);
-      if (plates.length > 0) workingUri = await WagenPhoto.blurRegions(photo.uri, plates);
-    } catch (e) {
-      console.warn('Detekcija tablica preskocena:', e);
+      if (isExterior) logEvent('plates_error', { shot: shotKey, error: String(e).slice(0, 160) });
+      else console.warn('Detekcija tablica preskocena:', e);
     }
   }
 
@@ -135,7 +140,7 @@ async function processOne(
           ? ('exterior' as const)
           : null;
     if (cloudKind) {
-      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey);
+      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey, sessionId);
       if (cloudUri) return cloudUri;
       // pad oblaka: eksterijer nastavlja na nativni pipeline ispod
     }
@@ -190,6 +195,7 @@ export async function processSessionPhotos(
     };
   }
   const capability = detected === 'none' ? 'blur_only' : detected;
+  const dealer = session.dealerId ? await getCachedDealerContext() : null;
   const targets = session.photos.filter((p) => !p.processedUri);
   const result: ProcessResult = {
     processed: 0,
@@ -201,7 +207,7 @@ export async function processSessionPhotos(
   let done = 0;
   for (const photo of targets) {
     try {
-      const processedUri = await processOne(photo, look, capability);
+      const processedUri = await processOne(photo, look, capability, session.id, dealer);
       if (processedUri) {
         const idx = photos.findIndex((p) => p.id === photo.id);
         if (idx >= 0) photos[idx] = { ...photos[idx]!, processedUri };
