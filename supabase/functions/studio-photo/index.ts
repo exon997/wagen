@@ -27,6 +27,18 @@ const PROMPT_EXTERIOR =
   'as in the source, including any blur applied to it. Same camera angle, crop and ' +
   'proportions. Photorealistic.';
 
+// Dealer branding (Faza A, sekcija 9): auto se smjesta u brandirani studio
+// salona - referentna slika je IMAGE 2. Prompt dokazan demom 2026-08-25.
+const PROMPT_EXTERIOR_BRANDED =
+  'Two images are provided: IMAGE 1 is a car photo, IMAGE 2 is a branded dealership photo ' +
+  'studio. Task: place the car from IMAGE 1 into the exact studio environment of IMAGE 2, ' +
+  'keeping the dealership logo lettering on the wall perfectly readable and unchanged. The ' +
+  'car must stay absolutely identical to IMAGE 1 - body panels, headlights, grille, wheels, ' +
+  'tires, window tint, emblems and the license plate pixel-for-pixel (including any blur or ' +
+  'graphic applied to the plate); never redraw them. Match the camera angle, crop and ' +
+  'proportions of IMAGE 1. Ground the car with natural shadow and subtle floor reflection ' +
+  'consistent with the studio lighting. Photorealistic, high-end dealership listing quality.';
+
 const PROMPT_INTERIOR =
   'Photo edit for a used-car marketplace listing, interior shot. Keep the ENTIRE interior ' +
   'absolutely identical to the input photo - seats, stitching, trim, screens and their ' +
@@ -58,11 +70,73 @@ Deno.serve(async (req) => {
   const body = (await req.json().catch(() => null)) as {
     image?: string;
     kind?: string;
+    sessionId?: string;
   } | null;
   const image = body?.image;
   const kind = body?.kind === 'interior' ? 'interior' : 'exterior';
   if (!image || typeof image !== 'string' || image.length < 1000) {
     return Response.json({ error: 'Nedostaje fotografija' }, { status: 422 });
+  }
+
+  // Dealer kontekst preko sesije (server je istina, klijent ne salje dealerId)
+  let brandedBackground: string | null = null;
+  if (body?.sessionId) {
+    const { data: session } = await service
+      .from('photo_sessions')
+      .select('id, user_id, dealer_id, studio_processed_at')
+      .eq('id', body.sessionId)
+      .maybeSingle();
+    if (session && session.user_id !== user.id) {
+      return Response.json({ error: 'Sesija ne pripada korisniku' }, { status: 403 });
+    }
+    if (session?.dealer_id) {
+      const { data: dealer } = await service
+        .from('dealers')
+        .select('id, display_name, studio_background_path, studio_monthly_limit')
+        .eq('id', session.dealer_id)
+        .maybeSingle();
+      if (dealer) {
+        // Fair-use: jedinica = sesija (vozilo); broji se pri prvom studio pozivu
+        if (!session.studio_processed_at) {
+          const { count } = await service
+            .from('photo_sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('dealer_id', dealer.id)
+            .gte(
+              'studio_processed_at',
+              new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+            );
+          if ((count ?? 0) >= dealer.studio_monthly_limit) {
+            return Response.json(
+              {
+                error: `Mjesecni limit AI studija za salon je dosegnut (${dealer.studio_monthly_limit} vozila). Javite se wagenu za povecanje.`,
+              },
+              { status: 429 },
+            );
+          }
+          await service
+            .from('photo_sessions')
+            .update({ studio_processed_at: new Date().toISOString() })
+            .eq('id', session.id)
+            .is('studio_processed_at', null);
+        }
+        // Brandirana pozadina (samo eksterijer)
+        if (kind === 'exterior' && dealer.studio_background_path) {
+          const { data: file } = await service.storage
+            .from('dealer-assets')
+            .download(dealer.studio_background_path);
+          if (file) {
+            const buf = new Uint8Array(await file.arrayBuffer());
+            let binary = '';
+            const chunk = 8192;
+            for (let i = 0; i < buf.length; i += chunk) {
+              binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+            }
+            brandedBackground = btoa(binary);
+          }
+        }
+      }
+    }
   }
 
   const started = Date.now();
@@ -76,7 +150,16 @@ Deno.serve(async (req) => {
           {
             parts: [
               { inline_data: { mime_type: 'image/jpeg', data: image } },
-              { text: kind === 'interior' ? PROMPT_INTERIOR : PROMPT_EXTERIOR },
+              ...(brandedBackground
+                ? [{ inline_data: { mime_type: 'image/png', data: brandedBackground } }]
+                : []),
+              {
+                text: brandedBackground
+                  ? PROMPT_EXTERIOR_BRANDED
+                  : kind === 'interior'
+                    ? PROMPT_INTERIOR
+                    : PROMPT_EXTERIOR,
+              },
             ],
           },
         ],
@@ -102,5 +185,10 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'AI nije vratio sliku' }, { status: 502 });
   }
 
-  return Response.json({ image: out, ms: Date.now() - started, model: MODEL });
+  return Response.json({
+    image: out,
+    ms: Date.now() - started,
+    model: MODEL,
+    branded: brandedBackground !== null,
+  });
 });
