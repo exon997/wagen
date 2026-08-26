@@ -19,6 +19,7 @@ import { findPlateRegions } from '@/lib/plates';
 import { getSupabase } from '@/lib/supabase';
 import {
   DEFAULT_LOOK,
+  mutateSession,
   type LocalPhoto,
   type LocalSession,
   type LookSettings,
@@ -28,6 +29,37 @@ export interface ProcessResult {
   processed: number;
   skipped: number;
   failed: number;
+}
+
+/**
+ * Obrada zivi na razini modula, ne ekrana (terenska lekcija 2026-08-26:
+ * izlazak s ekrana "gubio" je obradu jer se rezultat spremao tek na
+ * kraju). Svaka fotka se sad UPISUJE U SESIJU CIM JE GOTOVA, a ekran se
+ * pri povratku ponovno prikvaci na tekuce stanje preko pretplate.
+ */
+export interface ActiveProcessing {
+  sessionId: string;
+  done: number;
+  total: number;
+}
+
+let activeRun: ActiveProcessing | null = null;
+const listeners = new Set<(run: ActiveProcessing | null) => void>();
+
+function notifyProcessing(): void {
+  const snapshot = activeRun ? { ...activeRun } : null;
+  for (const listener of listeners) listener(snapshot);
+}
+
+export function getActiveProcessing(): ActiveProcessing | null {
+  return activeRun ? { ...activeRun } : null;
+}
+
+export function subscribeProcessing(fn: (run: ActiveProcessing | null) => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 /* eslint-disable @typescript-eslint/no-require-imports -- Metro trazi require() za staticke assete */
@@ -203,24 +235,43 @@ export async function processSessionPhotos(
     failed: 0,
   };
 
+  // Vec tece obrada ove sesije (npr. povratak na ekran) - ne dupliraj
+  if (activeRun?.sessionId === session.id) {
+    return { photos: session.photos, result };
+  }
+  activeRun = { sessionId: session.id, done: 0, total: targets.length };
+  notifyProcessing();
+
   const photos = [...session.photos];
   let done = 0;
-  for (const photo of targets) {
-    try {
-      const processedUri = await processOne(photo, look, capability, session.id, dealer);
-      if (processedUri) {
-        const idx = photos.findIndex((p) => p.id === photo.id);
-        if (idx >= 0) photos[idx] = { ...photos[idx]!, processedUri };
-        result.processed += 1;
-      } else {
-        result.skipped += 1;
+  try {
+    for (const photo of targets) {
+      try {
+        const processedUri = await processOne(photo, look, capability, session.id, dealer);
+        if (processedUri) {
+          const idx = photos.findIndex((p) => p.id === photo.id);
+          if (idx >= 0) photos[idx] = { ...photos[idx]!, processedUri };
+          // Upis ODMAH - izlazak s ekrana vise ne gubi obradjeno; mutacija
+          // dira samo ovu fotku pa ne gazi paralelne promjene redoslijeda
+          await mutateSession(session.id, (s) => ({
+            photos: s.photos.map((p) => (p.id === photo.id ? { ...p, processedUri } : p)),
+          }));
+          result.processed += 1;
+        } else {
+          result.skipped += 1;
+        }
+      } catch (e) {
+        console.warn(`Obrada fotke ${photo.id} pala:`, e);
+        result.failed += 1;
       }
-    } catch (e) {
-      console.warn(`Obrada fotke ${photo.id} pala:`, e);
-      result.failed += 1;
+      done += 1;
+      if (activeRun) activeRun.done = done;
+      notifyProcessing();
+      onProgress?.(done, targets.length);
     }
-    done += 1;
-    onProgress?.(done, targets.length);
+  } finally {
+    activeRun = null;
+    notifyProcessing();
   }
 
   logEvent('photos_processed', {

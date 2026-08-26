@@ -28,20 +28,19 @@ export default function PhotosScreen() {
   const [progress, setProgress] = useState('');
   const [viewerUri, setViewerUri] = useState<string | null>(null);
 
-  // I2: segmentacija + blur pozadine na eksterijeru; original se cuva
+  // I2: obrada zivi u modulu (ne u ekranu) i svaku fotku sprema odmah -
+  // izlazak s ekrana nista ne gubi, povratak se prikvaci na napredak
   const processAll = async () => {
     if (!session || processing) return;
     setProcessing(true);
     try {
       const { processSessionPhotos } = await import('@/lib/processing');
-      const { photos, result } = await processSessionPhotos(session, (done, total) =>
+      const { result } = await processSessionPhotos(session, (done, total) =>
         setProgress(`${done}/${total}`),
       );
-      if (result.processed > 0) {
-        const updated = await updateSession(session.id, { photos });
-        setSession(updated);
-      }
-      if (result.processed === 0 && result.failed === 0) {
+      const fresh = await getSession(session.id);
+      if (fresh) setSession(fresh);
+      if (result.processed === 0 && result.failed === 0 && result.skipped > 0) {
         Alert.alert(
           'Bez obrade',
           'Uredjaj ne podrzava punu obradu ili su sve eksterijer fotke vec obradjene.',
@@ -88,7 +87,28 @@ export default function PhotosScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (id) void getSession(id).then(setSession);
+      if (!id) return;
+      void getSession(id).then(setSession);
+      // Prikvaci se na obradu koja mozda vec tece (povratak na ekran)
+      let unsub: (() => void) | undefined;
+      void import('@/lib/processing').then(({ getActiveProcessing, subscribeProcessing }) => {
+        const active = getActiveProcessing();
+        if (active?.sessionId === id) {
+          setProcessing(true);
+          setProgress(`${active.done}/${active.total}`);
+        }
+        unsub = subscribeProcessing((run) => {
+          if (run && run.sessionId === id) {
+            setProcessing(true);
+            setProgress(`${run.done}/${run.total}`);
+          } else {
+            setProcessing(false);
+            setProgress('');
+          }
+          void getSession(id).then(setSession);
+        });
+      });
+      return () => unsub?.();
     }, [id]),
   );
 
