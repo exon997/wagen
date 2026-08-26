@@ -19,6 +19,7 @@ import {
   crosspostSession,
   isPhoneVerified,
   startPhoneVerification,
+  type PhoneOtpChannel,
 } from '@/lib/crosspost';
 import { getSupabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/events';
@@ -63,6 +64,7 @@ export default function PublishScreen() {
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('385');
   const [code, setCode] = useState('');
+  const [otpChannel, setOtpChannel] = useState<PhoneOtpChannel>('phone_change');
   const [listingId, setListingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -345,7 +347,10 @@ export default function PublishScreen() {
               onPress={() => {
                 setBusy(true);
                 startPhoneVerification(phone.replace(/\s/g, ''))
-                  .then(() => setStep('code'))
+                  .then((ch) => {
+                    setOtpChannel(ch);
+                    setStep('code');
+                  })
                   .catch((e: unknown) =>
                     Alert.alert('SMS nije poslan', e instanceof Error ? e.message : String(e)),
                   )
@@ -376,7 +381,7 @@ export default function PublishScreen() {
               style={styles.primary}
               onPress={() => {
                 setBusy(true);
-                confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim())
+                confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim(), otpChannel)
                   .then(() => publish())
                   .catch((e: unknown) =>
                     Alert.alert('Kod nije prihvacen', e instanceof Error ? e.message : String(e)),

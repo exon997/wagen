@@ -36,18 +36,38 @@ export async function isPhoneVerified(): Promise<boolean> {
   return !!user?.phone && !!user.phone_confirmed_at;
 }
 
-/** Posalje OTP na broj i veze ga uz POSTOJECEG (anonimnog) korisnika. */
-export async function startPhoneVerification(phone: string): Promise<void> {
+/**
+ * Nacin potvrde: 'phone_change' veze broj uz postojeceg anonimnog korisnika
+ * (prvi put); 'sms' prijavljuje U POSTOJECI racun kad broj vec pripada
+ * nekome - tipicno reinstalacija ili drugi uredjaj (terenski slucaj
+ * 2026-08-26: "korisnik vec registriran").
+ */
+export type PhoneOtpChannel = 'phone_change' | 'sms';
+
+/** Posalje OTP; vraca kanal kojim se kasnije potvrdjuje. */
+export async function startPhoneVerification(phone: string): Promise<PhoneOtpChannel> {
   const supabase = getSupabase();
   if (!supabase) throw new Error('Nema veze s posluziteljem');
   const { error } = await supabase.auth.updateUser({ phone });
-  if (error) throw new Error(error.message);
+  if (!error) return 'phone_change';
+  // Broj vec pripada racunu -> prijava u taj racun (zamjenjuje anonimnu sesiju)
+  const { error: signInError } = await supabase.auth.signInWithOtp({ phone });
+  if (signInError) throw new Error(signInError.message);
+  return 'sms';
 }
 
-export async function confirmPhoneVerification(phone: string, token: string): Promise<void> {
+export async function confirmPhoneVerification(
+  phone: string,
+  token: string,
+  channel: PhoneOtpChannel = 'phone_change',
+): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) throw new Error('Nema veze s posluziteljem');
-  const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'phone_change' });
+  const { error } = await supabase.auth.verifyOtp({
+    phone,
+    token,
+    type: channel === 'sms' ? 'sms' : 'phone_change',
+  });
   if (error) throw new Error(error.message);
 }
 

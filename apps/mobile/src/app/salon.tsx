@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
-import { confirmPhoneVerification, startPhoneVerification } from '@/lib/crosspost';
+import {
+  confirmPhoneVerification,
+  startPhoneVerification,
+  type PhoneOtpChannel,
+} from '@/lib/crosspost';
 import { getCachedDealerContext, refreshDealerContext, type DealerContext } from '@/lib/dealer';
 import { logEvent } from '@/lib/events';
 
@@ -17,6 +21,7 @@ export default function SalonScreen() {
   const [step, setStep] = useState<'idle' | 'phone' | 'code'>('idle');
   const [phone, setPhone] = useState('385');
   const [code, setCode] = useState('');
+  const [channel, setChannel] = useState<PhoneOtpChannel>('phone_change');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -27,7 +32,7 @@ export default function SalonScreen() {
   const sendCode = async () => {
     setBusy(true);
     try {
-      await startPhoneVerification(phone.replace(/\s/g, ''));
+      setChannel(await startPhoneVerification(phone.replace(/\s/g, '')));
       setStep('code');
     } catch (e) {
       Alert.alert('SMS nije poslan', e instanceof Error ? e.message : String(e));
@@ -39,7 +44,7 @@ export default function SalonScreen() {
   const confirm = async () => {
     setBusy(true);
     try {
-      await confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim());
+      await confirmPhoneVerification(phone.replace(/\s/g, ''), code.trim(), channel);
       const ctx = await refreshDealerContext();
       setDealer(ctx);
       setStep('idle');
