@@ -27,17 +27,24 @@ const PROMPT_EXTERIOR =
   'as in the source, including any blur applied to it. Same camera angle, crop and ' +
   'proportions. Photorealistic.';
 
-// Dealer branding (Faza A, sekcija 9): auto se smjesta u brandirani studio
-// salona - referentna slika je IMAGE 2. Prompt dokazan demom 2026-08-25.
+// Dealer branding (Faza A, sekcija 9): pozadina salona je referentni
+// ambijent (IMAGE 2). Terenska lekcija 2026-08-26: prompt MORA biti
+// formuliran kao UREDI FOTKU 1 (zamjena pozadine), ne "smjesti auto u
+// prostor" - inace model komponira scenu i prenosi druge aute/objekte s
+// parkiralista, mijenja mjerilo i izmislja rekvizite.
 const PROMPT_EXTERIOR_BRANDED =
-  'Two images are provided: IMAGE 1 is a car photo, IMAGE 2 is a branded dealership photo ' +
-  'studio. Task: place the car from IMAGE 1 into the exact studio environment of IMAGE 2, ' +
-  'keeping the dealership logo lettering on the wall perfectly readable and unchanged. The ' +
-  'car must stay absolutely identical to IMAGE 1 - body panels, headlights, grille, wheels, ' +
-  'tires, window tint, emblems and the license plate pixel-for-pixel (including any blur or ' +
-  'graphic applied to the plate); never redraw them. Match the camera angle, crop and ' +
-  'proportions of IMAGE 1. Ground the car with natural shadow and subtle floor reflection ' +
-  'consistent with the studio lighting. Photorealistic, high-end dealership listing quality.';
+  'Edit the FIRST image (a car photo). Replace its ENTIRE background and the ground with ' +
+  'the studio environment shown in the SECOND image: same walls, wall logo, ceiling ' +
+  'lighting and floor material. This is a background replacement, NOT a scene composition: ' +
+  'the main vehicle of the first image must remain in EXACTLY the same position, size, crop ' +
+  'and camera angle - pixel-faithful body panels, lights, grille, wheels, tires, window ' +
+  'tint, emblems and license plate (including any blur or graphic applied to the plate); ' +
+  'never redraw them. CRITICAL: the output must contain ONLY that one vehicle - remove ' +
+  'every other vehicle, person and object from the original photo (parked cars, buildings, ' +
+  'bins, equipment). Adapt/crop the studio to fit the first image framing; keep the wall ' +
+  'logo readable and undistorted where the car does not cover it. Ground the car with a ' +
+  'natural shadow and subtle floor reflection consistent with the studio lighting. ' +
+  'Photorealistic, high-end dealership listing quality.';
 
 const PROMPT_INTERIOR =
   'Photo edit for a used-car marketplace listing, interior shot. Keep the ENTIRE interior ' +

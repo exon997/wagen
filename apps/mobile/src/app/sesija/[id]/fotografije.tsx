@@ -30,15 +30,15 @@ export default function PhotosScreen() {
 
   // I2: obrada zivi u modulu (ne u ekranu) i svaku fotku sprema odmah -
   // izlazak s ekrana nista ne gubi, povratak se prikvaci na napredak
-  const processAll = async () => {
-    if (!session || processing) return;
+  const processAllFrom = async (target: LocalSession | null) => {
+    if (!target || processing) return;
     setProcessing(true);
     try {
       const { processSessionPhotos } = await import('@/lib/processing');
-      const { result } = await processSessionPhotos(session, (done, total) =>
+      const { result } = await processSessionPhotos(target, (done, total) =>
         setProgress(`${done}/${total}`),
       );
-      const fresh = await getSession(session.id);
+      const fresh = await getSession(target.id);
       if (fresh) setSession(fresh);
       if (result.processed === 0 && result.failed === 0 && result.skipped > 0) {
         Alert.alert(
@@ -52,6 +52,20 @@ export default function PhotosScreen() {
       setProcessing(false);
       setProgress('');
     }
+  };
+
+  const processAll = () => processAllFrom(session);
+
+  // Ponovna obrada: ocisti processedUri (original se UVIJEK cuva) pa
+  // pokreni ispocetka - za promjenu postavki ili poboljsanja pipelinea.
+  // Fair-use se ne broji duplo (sesija je vec oznacena na serveru).
+  const reprocessAll = async () => {
+    if (!session || processing) return;
+    const cleared = await updateSession(session.id, {
+      photos: session.photos.map(({ processedUri: _drop, ...p }) => p),
+    });
+    setSession(cleared);
+    await processAllFrom(cleared);
   };
 
   // J1 (izvucen naprijed): spremanje u galeriju telefona - srce foto moda.
@@ -159,6 +173,13 @@ export default function PhotosScreen() {
               {processing ? `Obradjujem… ${progress}` : 'Obradi fotografije'}
             </Text>
           </Pressable>
+          {!processing && session.photos.some((p) => p.processedUri) && (
+            <Pressable style={styles.reprocessLink} onPress={() => void reprocessAll()}>
+              <Text style={styles.reprocessLinkText}>
+                Obradi ponovno (nove postavke) - originali su sacuvani
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             style={[styles.saveButton, saving && styles.saveButtonBusy]}
             onPress={() => void saveAllToGallery()}
@@ -266,5 +287,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   processButtonText: { color: colors.cyan, fontWeight: '700', fontSize: 15 },
+  reprocessLink: { paddingVertical: 8, alignItems: 'center', marginBottom: 4 },
+  reprocessLinkText: { color: colors.gray, fontSize: 13 },
   saveButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
 });
