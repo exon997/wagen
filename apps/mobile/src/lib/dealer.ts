@@ -9,6 +9,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { logEvent } from '@/lib/events';
 import { getSupabase } from '@/lib/supabase';
 
 export interface DealerContext {
@@ -36,10 +37,17 @@ export async function refreshDealerContext(): Promise<DealerContext | null> {
   const supabase = getSupabase();
   if (!supabase) return getCachedDealerContext();
   try {
-    // Idempotentno: preuzmi eventualne nove pozivnice za ovaj telefon
-    await supabase.rpc('claim_dealer_invites');
+    // Idempotentno: preuzmi eventualne nove pozivnice za ovaj telefon.
+    // Greske se NE gutaju tiho (lekcija: claim je danima bacao 42P01).
+    const { error: claimError } = await supabase.rpc('claim_dealer_invites');
+    if (claimError) {
+      logEvent('dealer_claim_error', { error: claimError.message.slice(0, 160) });
+    }
     const { data, error } = await supabase.rpc('my_dealer');
-    if (error) return getCachedDealerContext();
+    if (error) {
+      logEvent('dealer_lookup_error', { error: error.message.slice(0, 160) });
+      return getCachedDealerContext();
+    }
     const row = (Array.isArray(data) ? data[0] : data) as {
       dealer_id?: string;
       display_name?: string;
