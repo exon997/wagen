@@ -138,6 +138,40 @@ Oba tipa korisnika u aplikaciji rade identičan posao: **VIN sken → podaci o v
 
 ### 4.5 Faza 0 — samostalni život aplikacije prije javnog lansiranja weba
 
+> **AŽURIRANO 2026-09-05 (ODLUČENO): Faza 0 s FB grupama se NAPUŠTA.**
+> Cilj projekta: **auto oglasnik broj 1 u Hrvatskoj.** Novi GTM slijed:
+>
+> 1. **Dovršetak platforme** — sve funkcionalno prije ikakve promocije:
+>    AlphaOne (dealer aplikacija), Kokpit, wagen.hr web oglasnik,
+>    wagen.hr aplikacija (s AlphaOne lite za predaju privatnih oglasa).
+> 2. **AlphaOne trgovcima** — trgovci koriste alat i time PUNE oglasnik.
+>    **U ovoj fazi je za trgovce u Hrvatskoj SVE BESPLATNO** (cijena
+>    79 €/mj iz sekcije 9 ostaje definirani proizvod; aktivacija naplate
+>    TBD, sekcija 20). Oglasnik se još ne promovira.
+> 3. **Prag punjenja** — ciljano 10–20k+ oglasa; točan prag se odlučuje
+>    u hodu (TBD, sekcija 20).
+> 4. **Promocija wagen.hr aplikacije** — kreće tek kad je oglasnik pun;
+>    **ključni KPI = broj preuzimanja aplikacije.** Prvi kanal: vlastite
+>    FB grupe, korekcije u hodu.
+>
+> **Dvo-aplikacijska arhitektura (ODLUČENO 2026-09-05):**
+> - **Wagen AlphaOne** (iOS+Android) — isključivo za trgovce: VIN →
+>   vođeno fotografiranje → AI obrada s brandingom → generiranje sadržaja
+>   (opis, 9:16 video, carousel, captioni, Ekspoze PDF, Izlog) → izvoz i
+>   višekanalna upotreba → puna sinkronizacija s Kokpitom. Sadašnja
+>   aplikacija postaje AlphaOne (rename + bundle ID pod org računom).
+> - **wagen.hr** (iOS+Android) — potrošačka aplikacija oglasnika:
+>   pretraga, praćenje, notifikacije + **AlphaOne lite** za predaju
+>   privatnih oglasa. **Oglas se predaje isključivo kroz aplikaciju**
+>   (pooštrenje asimetrije 18.2; trgovci i dalje mogu i kroz Kokpit).
+> - **9:16 video, carousel i captioni su PRE-launch** (revidira
+>   post-launch odluku iz 21) — dio dealer akvizicije: "kad netko
+>   preuzme aplikaciju, ima što vidjeti".
+>
+> Tekst ispod je povijesni kontekst originalne Faze 0 (pending pool,
+> cjenovna baza kao nusprodukt i Blitzkrieg logika ostaju validni koncepti
+> — samo se punjenje sada primarno oslanja na trgovce, ne na FB grupe).
+
 Redoslijed lansiranja se obrće u odnosu na klasični model: **aplikacija živi samostalno prije javnog weba**, a wagen.hr se lansira u već zagrijan kanal.
 
 - Backend (Supabase) od prvog dana prima VIN podatke, fotografije i **draft oglase u pending statusu** — javni web još ne mora postojati.
@@ -173,6 +207,23 @@ Redoslijed lansiranja se obrće u odnosu na klasični model: **aplikacija živi 
 > Odluka: **magic link zamjenjuje klasični email+lozinka**, ne postoji uz njega — manje trenja, nema "zaboravljena lozinka" supporta.
 
 ### 5.2 Auth arhitektura
+
+> **AŽURIRANO 2026-09-05 (ODLUČENO): magic link se UKIDA** (prekompliciran
+> put; deep-link setup bez opravdanja). Metode po platformi:
+>
+> - **Mobilne aplikacije (AlphaOne i wagen.hr):** prvi ulazak SMS OTP
+>   (postojeća Twilio infrastruktura; identitet trgovca je ionako telefon
+>   — pozivnice, članstva). Sesija u SecureStore; svako sljedeće
+>   otvaranje otključava **biometrija ili PIN uređaja**
+>   (expo-local-authentication). Korisnik nakon prvog ulaska više nikad
+>   ne tipka kod.
+> - **Web (Kokpit, kasnije i oglasnik):** standardni **email + lozinka**.
+>   Automatska odjava: **idle timeout 8 h + apsolutni rok 7 dana**
+>   (Supabase time-box/inactivity konfiguracija, bez vlastitog koda) —
+>   štiti zajednička računala u salonu, ne izluđuje dnevni rad.
+>   Telefonska prijava ostaje mobilna metoda; email+lozinka je web metoda
+>   (dual anchor ispod povezuje identitete).
+
 - Supabase Auth kao jedinstveni identity layer za web + app (jedna users tablica, JWT)
 - **Dual anchor za account linking:** email + telefon
 - Kad se verificirani email/telefon s nove auth metode poklapa s postojećim računom → automatsko povezivanje identiteta (Supabase `linkIdentity`), umjesto duplog računa
@@ -620,6 +671,33 @@ Dva entiteta umjesto klasičnog jednog (samo "oglas"), omogućeno VIN-om na ulaz
 
 ## 16. Tražilica i naslovnica
 
+> **AŽURIRANO 2026-09-05 (spec vlasnika):** BRZINA pretrage je prioritet #1.
+> Dopune odluka:
+>
+> - **Brza pretraga (opcija 1):** marka, model, u prometu od (godina),
+>   cijena do, kilometraža do, lokacija → gumb s živim brojem rezultata
+>   ("455 ponuda"). Ispod: toggle "samo električni", "resetiraj",
+>   "dodatni filtri". Detaljni filtri i na stranici rezultata ("Filtriraj").
+> - **Opcija 2:** "dodatni filtri" na naslovnici odmah otvara pun set.
+> - **Više modela iste marke odjednom** (npr. BMW 116 + 118 + 120) —
+>   obavezno, u brzoj i punoj pretrazi.
+> - **Spremljene pretrage na naslovnici:** imenovani čipovi (ime daje
+>   korisnik ili sustav), brisanje X-om na čipu, razuman limit
+>   (prijedlog 6 — TBD potvrda, sekcija 20). Gumb "Spremi pretragu"
+>   istaknut na stranici rezultata.
+> - **Praćenje vozila + notifikacije:** jednostavno spremanje auta
+>   (Garaža 14.3) s obavijesti o promjeni cijene; obavijest kad se
+>   pojavi novi oglas po spremljenim kriterijima (14.6).
+> - **AI pretraga** potvrđena kao dodatni ulaz (Claude sloj nad
+>   Meilisearchom, sekcija 1) — brza pretraga ostaje primarna.
+> - **Kategorije (prijedlog, TBD potvrda — sekcija 20):** Automobili ·
+>   Motori (potkategorije: naked, scooter, chopper/cruiser, enduro,
+>   supersport, sport tourer, quad/ATV, adventure; polja: marka, model,
+>   ccm, u prometu od, km do, cijena do, lokacija) · **Kombiji i
+>   dostavna (do 3,5 t)** · **Kamioni i gospodarska (preko 3,5 t)**.
+>   Granica 3,5 t prati B kategoriju. Extensible kategorije (15.2) ovo
+>   nose bez migracija.
+
 ### 16.1 Dva sloja, jedan ekran
 
 **Sloj 1 — klasična brza pretraga (default na desktopu, gornja polovica hero sekcije):**
@@ -701,6 +779,18 @@ Stranice modela nisu gola lista oglasa + H1 (to ima svatko). Svaka prikazuje **s
 ## 18. Sučelja platforme: Kokpit trgovca, Moji oglasi, wagen admin
 
 ### 18.1 Kokpit trgovca (dealer dashboard)
+
+> **AŽURIRANO 2026-09-05 (ODLUČENO): javna stranica trgovca ide ODMAH,
+> bez custom domene.** Uzor mobile.de: (1) stranica "svi oglasi ovog
+> trgovca" i (2) **uređiva stranica trgovca** na
+> `www.wagen.hr/ime-trgovca` — logo, opis, kontakt, radno vrijeme,
+> lokacija, zaliha. Namjena: trgovci bez vlastitog weba stavljaju je u
+> Google Business profil — **od prvog dana korištenja AlphaOne/Kokpita
+> imaju web stranicu.** Custom domena: samo ako se pokaže tehnički
+> jeftina, inače kasnije (TBD, sekcija 20). Preduvjet: spajanje
+> wagen.hr domene na hosting (DNS — akcija vlasnika).
+> Kokpit dobiva i: **AI nadzor zalihe** i statistike/analizu cijena po
+> vozilu (postojeći planovi niže), povezivanje s DMS/ERP sustavima.
 
 Jedan Kokpit, dva režima rada — sudar DMS i ne-DMS trgovaca rješava se prilagodbom, ne dvama proizvodima:
 - **DMS-povezan trgovac (AutoBrief adapter):** Kokpit je nadzorno-obogaćivački sloj — zaliha se čita iz synca (DMS-owned polja vidljivo označena kao "upravlja DMS", po 12.2/15.3), a Kokpit služi za enrichment (bedž, TOP raspored, redoslijed fotografija), statistiku i Izloge.
@@ -818,12 +908,30 @@ Obrazac distribucije kroz aktere (dovršava postojeću obitelj): watermark čini
 - [ ] Naplata AI studio obrade — **privatni** oglašivači (besplatno uz prihvaćen crosspost? zasebna naplata?): aplikacija mora ostati besplatan alat (4.5)
 - [ ] Fair-use limit za dealer flat 79 €/mj (prijedlog: 100 obrađenih vozila/mj, iznad toga dogovor)
 - [ ] Njuškalo/Index outbound: tehnički kanal po portalu (feed? API? trgovčev račun?) — istražiti uvjete pristupa prije gradnje adaptera
-- [ ] Ime i pozicioniranje dealer foto proizvoda (dio wagen.hr brenda ili zaseban naziv?)
+- [x] ~~Ime i pozicioniranje dealer foto proizvoda~~ **RIJEŠENO 2026-09-05: Wagen AlphaOne (zasebna dealer aplikacija; potrošačka aplikacija = wagen.hr s AlphaOne lite; 4.5).**
+- [ ] Aktivacija naplate trgovcima u HR (u fazi punjenja SVE besplatno — 4.5; kada i kako se pali 79 €/mj?)
+- [ ] Prag punjenja oglasnika za start promocije potrošačke aplikacije (cilj 10–20k+ oglasa; odlučuje se u hodu)
+- [ ] Kategorije vozila — potvrda prijedloga iz 16 (Motori potkategorije; Kombiji ≤3,5 t / Kamioni >3,5 t)
+- [ ] Limit broja spremljenih pretraga na naslovnici (prijedlog: 6)
+- [ ] Custom domene za stranice trgovaca (v1 je wagen.hr/ime-trgovca; custom samo ako jeftino)
 - [ ] AI studio: izbor pružatelja dugoročno (Gemini 3.1 Flash je prvi; adapter princip) + limit troška po korisniku/danu protiv zloupotrebe
 
 ---
 
 ## 21. Redoslijed implementacije (Claude Code)
+
+> **AŽURIRANO 2026-09-05:** GTM promjena (4.5) mijenja redoslijed nakon
+> Sprinta 2: **9:16 video, carousel i captioni sele iz post-launcha u
+> PRE-launch** (dio AlphaOne dealer akvizicije), javna stranica trgovca
+> ide odmah uz Kokpit, a "launch dan" se dijeli na dva događaja:
+> (1) AlphaOne trgovcima (punjenje, sve besplatno u HR) i
+> (2) promocija wagen.hr aplikacije kad je oglasnik pun (KPI:
+> preuzimanja). Sprintovi 1–2 su isporučeni; daljnji blokovi:
+> A) AlphaOne dovršetak (rebrand, auth v2, sadržajni paket: video/
+> carousel/caption/Ekspoze/Izlog), B) Kokpit širenje (javna stranica
+> trgovca, portali Njuškalo/Index, DMS), C) wagen.hr web oglasnik
+> (Sprint 4 sadržaj), D) wagen.hr mobilna aplikacija (pretraga +
+> AlphaOne lite).
 
 Razrada dokumenta je završena — sekcije 1–20 su izvor istine za implementaciju. Redoslijed slijedi iz dvije činjenice: sve ovisi o data modelu, a prvi proizvod koji izlazi pred korisnike je aplikacija (Faza 0), ne web.
 
