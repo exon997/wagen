@@ -84,6 +84,18 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
       }),
   );
 
+  const [{ data: dealerRows }, { data: dealerPage }] = await Promise.all([
+    supabase.rpc('my_dealer'),
+    session.dealer_id
+      ? supabase
+          .from('dealer_pages')
+          .select('slug, is_published')
+          .eq('dealer_id', session.dealer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const myDealer = Array.isArray(dealerRows) ? dealerRows[0] : dealerRows;
+
   const equipmentNames = (equipment ?? [])
     .map((row) => row.equipment_codes)
     .filter((c): c is NonNullable<typeof c> => !!c)
@@ -98,6 +110,8 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
       priceHistory={prices ?? []}
       equipment={equipmentNames}
       photos={photos}
+      dealerName={myDealer?.display_name ?? 'wagen salon'}
+      pageUrl={dealerPage?.is_published ? `https://wagen.hr/${dealerPage.slug}` : null}
     />
   );
 }

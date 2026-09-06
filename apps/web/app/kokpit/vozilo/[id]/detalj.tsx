@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Mediji } from './mediji';
 
 interface Vehicle {
   id: string;
@@ -52,6 +53,8 @@ export function VoziloDetalj({
   priceHistory,
   equipment,
   photos: initialPhotos,
+  dealerName,
+  pageUrl,
 }: {
   sessionId: string;
   vin: string | null;
@@ -60,6 +63,8 @@ export function VoziloDetalj({
   priceHistory: { price: number; created_at: string }[];
   equipment: string[];
   photos: Photo[];
+  dealerName: string;
+  pageUrl: string | null;
 }) {
   const router = useRouter();
   const attrs = (listing.attributes ?? {}) as Record<string, unknown>;
@@ -365,6 +370,24 @@ export function VoziloDetalj({
           ))}
         </div>
       </section>
+
+      <Mediji
+        photos={photos}
+        title={`${year || vehicle.model_year ? `${year || vehicle.model_year} ` : ''}${vehicle.make} ${vehicle.model}`}
+        priceLabel={formatPrice(price ? parseInt(price, 10) : listing.price_current)}
+        dealerName={dealerName}
+        pageUrl={pageUrl}
+        caption={{
+          make: vehicle.make,
+          model: vehicle.model,
+          engineLabel: vehicle.engine_label,
+          year: year ? parseInt(year, 10) : vehicle.model_year,
+          priceEur: price ? parseInt(price, 10) : listing.price_current,
+          mileageKm: mileage ? parseInt(mileage, 10) : null,
+          city: city || null,
+          vehicleId: vehicle.id,
+        }}
+      />
     </main>
   );
 }
