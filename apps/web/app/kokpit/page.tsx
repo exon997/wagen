@@ -61,6 +61,9 @@ export default async function KokpitPage() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <h1 style={{ fontSize: 26 }}>{dealer.display_name} · Kokpit</h1>
         <p style={{ color: '#555' }}>
+          <Link href="/kokpit/stranica" style={{ marginRight: 16 }}>
+            Moja javna stranica →
+          </Link>
           AI studio ovaj mjesec: <strong>{dealer.studio_used_this_month}</strong> /{' '}
           {dealer.studio_monthly_limit} vozila
         </p>
