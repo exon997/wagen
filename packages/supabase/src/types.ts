@@ -307,6 +307,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           display_name: string
+          feed_token: string
           id: string
           legal_name: string
           market: string
@@ -327,6 +328,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           display_name: string
+          feed_token?: string
           id?: string
           legal_name: string
           market?: string
@@ -347,6 +349,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           display_name?: string
+          feed_token?: string
           id?: string
           legal_name?: string
           market?: string
