@@ -254,10 +254,12 @@ export async function processSessionPhotos(
           // Upis ODMAH - izlazak s ekrana vise ne gubi obradjeno; mutacija
           // dira samo ovu fotku pa ne gazi paralelne promjene redoslijeda
           await mutateSession(session.id, (s) => ({
-            photos: s.photos.map((p) =>
+            photos: s.photos.map((p) => {
+              if (p.id !== photo.id) return p;
               // nova obrada ponistava oznaku uploada - sync salje svjezu verziju
-              p.id === photo.id ? { ...p, processedUri, processedRemotePath: undefined } : p,
-            ),
+              const { processedRemotePath: _stale, ...rest } = p;
+              return { ...rest, processedUri };
+            }),
           }));
           result.processed += 1;
         } else {
