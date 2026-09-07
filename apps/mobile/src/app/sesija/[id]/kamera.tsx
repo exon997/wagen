@@ -12,6 +12,21 @@ import { getSession, updateSession, type LocalPhoto, type LocalSession } from '@
 import { syncSession } from '@/lib/sync';
 import { GUIDED_SHOTS } from '@/lib/guided-shots';
 
+/* eslint-disable @typescript-eslint/no-require-imports -- Metro trazi require() za staticke assete */
+// 4.4: staticne siluete za 6 eksterijernih kutova - uce operatera ISTI
+// kadar standard koji QC provjerava na serveru (auto ~82% sirine,
+// centriran, kotaci nisko). Dizajnerova finalna line-art zamjenjuje
+// datoteke, kod ostaje.
+const SILHOUETTES: Record<string, number> = {
+  'ext-front-left': require('../../../../assets/silhouettes/ext-front-left.png') as number,
+  'ext-front': require('../../../../assets/silhouettes/ext-front.png') as number,
+  'ext-front-right': require('../../../../assets/silhouettes/ext-front-right.png') as number,
+  'ext-rear-right': require('../../../../assets/silhouettes/ext-rear-right.png') as number,
+  'ext-rear': require('../../../../assets/silhouettes/ext-rear.png') as number,
+  'ext-rear-left': require('../../../../assets/silhouettes/ext-rear-left.png') as number,
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 /**
  * H1 v2: Vodjeno fotografiranje u LANDSCAPE modu (auto je horizontalan
  * objekt). Layout po uzoru na profesionalne foto alate: lijeva traka =
@@ -27,6 +42,7 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [stepIndex, setStepIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
   const [session, setSession] = useState<LocalSession | null>(null);
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
   const [tilt, setTilt] = useState<{ roll: number; pitch: number } | null>(null);
@@ -159,7 +175,13 @@ export default function CameraScreen() {
       <View style={styles.cameraWrap}>
         <CameraView ref={setCameraRef} style={StyleSheet.absoluteFill} facing="back" />
         <View pointerEvents="none" style={styles.overlay}>
-          <View style={styles.silhouette} />
+          {showGuide && shot && SILHOUETTES[shot.key] !== undefined && (
+            <Image
+              source={SILHOUETTES[shot.key]!}
+              style={styles.silhouetteImg}
+              resizeMode="contain"
+            />
+          )}
           <Text style={styles.overlayLabel}>
             {shot
               ? shot.section.toUpperCase() +
@@ -178,6 +200,16 @@ export default function CameraScreen() {
 
       {/* Desna traka: libela + okidac */}
       <View style={styles.rightRail}>
+        {shot && SILHOUETTES[shot.key] !== undefined && (
+          <Pressable
+            style={[styles.guideToggle, showGuide && styles.guideToggleOn]}
+            onPress={() => setShowGuide((v) => !v)}
+          >
+            <Text style={[styles.guideToggleText, showGuide && styles.guideToggleTextOn]}>
+              Silueta
+            </Text>
+          </Pressable>
+        )}
         <View style={styles.level}>
           <View style={styles.levelCrossH} />
           <View style={styles.levelCrossV} />
@@ -246,14 +278,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  silhouette: {
-    width: '82%',
-    height: '68%',
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(30, 220, 232, 0.55)',
-    borderRadius: 16,
+  silhouetteImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.45,
   },
+  guideToggle: {
+    borderColor: colors.gray,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  guideToggleOn: { borderColor: colors.cyan },
+  guideToggleText: { color: colors.gray, fontSize: 11 },
+  guideToggleTextOn: { color: colors.cyan },
   overlayLabel: {
     position: 'absolute',
     bottom: 10,
