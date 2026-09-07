@@ -40,8 +40,10 @@ const PROMPT_EXTERIOR_BRANDED =
   'first photo so the car stands in a clean studio in front of EXACTLY this backdrop: ' +
   'reproduce its gradient, colors and logos faithfully (logos readable and undistorted). ' +
   'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
-  'no windows, no props - only the backdrop wall and a seamless dark reflective studio ' +
-  'floor that blends into it. This is a background replacement, NOT a scene composition: ' +
+  'no windows, no props. The ground the car stands on IS the lower portion of the SECOND ' +
+  'image: continue its exact colors and gradient onto the floor (do NOT darken, recolor or ' +
+  'replace it), with only a subtle reflection of the car. The final background from top to ' +
+  'bottom must look like the SECOND image. This is a background replacement, NOT a scene composition: ' +
   'the main vehicle of the first image must remain in EXACTLY the same position, size, crop ' +
   'and camera angle - pixel-faithful body panels, lights, grille, wheels, tires, window ' +
   'tint, emblems and license plate (including any blur or graphic applied to the plate); ' +
@@ -152,9 +154,10 @@ Deno.serve(async (req) => {
             .from('dealer-assets')
             .download(dealer.studio_background_path);
           if (file) brandedBackground = toBase64(new Uint8Array(await file.arrayBuffer()));
-          // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07)
+          // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07).
+          // Verzija u imenu: promjena prompta ponistava stara sidra sama od sebe.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v2.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);
