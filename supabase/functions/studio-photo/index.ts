@@ -87,6 +87,62 @@ const PROMPT_INTERIOR =
   'look natural, but do not change any materials or details. Same camera angle, crop and ' +
   'proportions. Photorealistic.';
 
+// Kontrola kadra (2026-09-07): prompt je probabilistican pa server nakon
+// rendera PROVJERI polozaj auta (jeftini vision poziv -> bbox) i po
+// potrebi JEDNOM ponovi render s korektivnom uputom. Tolerancije:
+// centar +/-5% sirine, donja margina 3-20% visine, sirina auta >=65%.
+async function carBounds(
+  geminiKey: string,
+  imageB64: string,
+): Promise<{ x0: number; y0: number; x1: number; y1: number } | null> {
+  try {
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      {
+        method: 'POST',
+        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { inline_data: { mime_type: 'image/png', data: imageB64 } },
+                {
+                  text: 'Return ONLY JSON, no prose: the bounding box of the car in this image as fractions of image width/height, e.g. {"x0":0.1,"y0":0.2,"x1":0.9,"y1":0.85}',
+                },
+              ],
+            },
+          ],
+          generationConfig: { response_mime_type: 'application/json' },
+        }),
+      },
+    );
+    const j = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = j?.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
+    if (!text) return null;
+    const box = JSON.parse(text) as { x0: number; y0: number; x1: number; y1: number };
+    if ([box.x0, box.y0, box.x1, box.y1].some((v) => typeof v !== 'number')) return null;
+    return box;
+  } catch {
+    return null;
+  }
+}
+
+function framingHint(box: { x0: number; y0: number; x1: number; y1: number }): string | null {
+  const cx = (box.x0 + box.x1) / 2;
+  const width = box.x1 - box.x0;
+  const bottomGap = 1 - box.y1;
+  const problems: string[] = [];
+  if (cx < 0.45) problems.push('the car sits too far LEFT - move it right so it is horizontally centered');
+  if (cx > 0.55) problems.push('the car sits too far RIGHT - move it left so it is horizontally centered');
+  if (width < 0.65) problems.push('the car is too SMALL - enlarge it to about 80-85% of the image width');
+  if (bottomGap > 0.2) problems.push('the car sits too HIGH - move it down so only a narrow floor strip (about 10% of the height) remains below the tires');
+  if (bottomGap < 0.02) problems.push('the car is too close to the BOTTOM edge - leave a narrow floor strip below the tires');
+  if (problems.length === 0) return null;
+  return ` FRAMING CORRECTION (your previous attempt failed these rules): ${problems.join('; ')}. Re-render with the composition fixed; everything else stays the same.`;
+}
+
 Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -212,54 +268,70 @@ Deno.serve(async (req) => {
   }
 
   const started = Date.now();
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: image } },
-              ...(brandedBackground
-                ? [{ inline_data: { mime_type: 'image/png', data: brandedBackground } }]
-                : []),
-              ...(brandedBackground && sessionRef
-                ? [{ inline_data: { mime_type: 'image/png', data: sessionRef } }]
-                : []),
-              {
-                text: brandedBackground
-                  ? PROMPT_EXTERIOR_BRANDED +
-                    (dealerDisplayName ? promptPlates(dealerDisplayName) : '') +
-                    (sessionRef ? PROMPT_SESSION_REF : '')
-                  : kind === 'interior'
-                    ? PROMPT_INTERIOR
-                    : PROMPT_EXTERIOR,
-              },
-            ],
-          },
-        ],
-      }),
-    },
-  );
+  const basePrompt = brandedBackground
+    ? PROMPT_EXTERIOR_BRANDED +
+      (dealerDisplayName ? promptPlates(dealerDisplayName) : '') +
+      (sessionRef ? PROMPT_SESSION_REF : '')
+    : kind === 'interior'
+      ? PROMPT_INTERIOR
+      : PROMPT_EXTERIOR;
 
-  const json = (await res.json().catch(() => null)) as {
-    candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[];
-    error?: { message?: string };
-  } | null;
-
-  if (!res.ok) {
-    return Response.json(
-      { error: `AI servis: ${json?.error?.message?.slice(0, 200) ?? `HTTP ${res.status}`}` },
-      { status: 502 },
+  const render = async (promptText: string): Promise<{ out?: string; error?: string }> => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { inline_data: { mime_type: 'image/jpeg', data: image } },
+                ...(brandedBackground
+                  ? [{ inline_data: { mime_type: 'image/png', data: brandedBackground } }]
+                  : []),
+                ...(brandedBackground && sessionRef
+                  ? [{ inline_data: { mime_type: 'image/png', data: sessionRef } }]
+                  : []),
+                { text: promptText },
+              ],
+            },
+          ],
+        }),
+      },
     );
-  }
+    const json = (await res.json().catch(() => null)) as {
+      candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[];
+      error?: { message?: string };
+    } | null;
+    if (!res.ok) {
+      return { error: `AI servis: ${json?.error?.message?.slice(0, 200) ?? `HTTP ${res.status}`}` };
+    }
+    const data = json?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)
+      ?.inlineData?.data;
+    return data ? { out: data } : { error: 'AI nije vratio sliku' };
+  };
 
-  const out = json?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData
-    ?.data;
-  if (!out) {
-    return Response.json({ error: 'AI nije vratio sliku' }, { status: 502 });
+  const first = await render(basePrompt);
+  if (!first.out) {
+    return Response.json({ error: first.error }, { status: 502 });
+  }
+  let out = first.out;
+  let framingRetried = false;
+
+  // Kontrola kadra: provjeri bbox, po potrebi JEDNOM ponovi s korekcijom
+  if (brandedBackground) {
+    const box = await carBounds(geminiKey, out);
+    const hint = box ? framingHint(box) : null;
+    if (hint) {
+      framingRetried = true;
+      const second = await render(basePrompt + hint);
+      if (second.out) {
+        const box2 = await carBounds(geminiKey, second.out);
+        // uzmi drugu samo ako je prosla (ili ako je prva bila gora od tolerancije, a druga nije provjerljiva)
+        if (!box2 || !framingHint(box2)) out = second.out;
+      }
+    }
   }
 
   // Prva uspjesna studio fotka sesije postaje referenca za sljedece
@@ -276,5 +348,6 @@ Deno.serve(async (req) => {
     ms: Date.now() - started,
     model: MODEL,
     branded: brandedBackground !== null,
+    framingRetried,
   });
 });
