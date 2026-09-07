@@ -66,6 +66,12 @@ export interface LocalSession {
   dealerId?: string | null;
   /** Priprema: odabrani izgled fotografija (2. korak flowa). */
   look?: LookSettings;
+  /**
+   * Naknadno ugradjena oprema (Dodatno 4, 2026-09-07): rucni unos
+   * prodavaca, ODVOJENO od tvornicke opreme iz VIN dekodea. Pri objavi
+   * ide u listings.attributes.retrofit_equipment.
+   */
+  retrofitEquipment?: string[];
   photos: LocalPhoto[];
   createdAt: string;
   updatedAt: string;
