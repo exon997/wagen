@@ -1,28 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Crypto from 'expo-crypto';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import { colors } from '@wagen/domain';
-import { getSession, updateSession, type LocalPhoto, type LocalSession } from '@/lib/sessions';
+import { alphaone } from '@wagen/domain';
+import { IconCircle, T } from '@/ui/kit';
+import { getSession, mutateSession, type LocalPhoto, type LocalSession } from '@/lib/sessions';
 import { syncSession } from '@/lib/sync';
 import { GUIDED_SHOTS } from '@/lib/guided-shots';
 
 /**
- * H1 v3: Vodjeno fotografiranje (spec vlasnika 2026-09-07):
- * - prikaz kamere je TOCNO 4:3 (isto sto i fotografija - korisnik zna sto slika)
- * - dijagonale: ZONA (kutne zagrade) u koju se auto smjesta - radi za
- *   svaki oblik vozila (Smart, XM, V-klasa...), bez modelskih silueta
- * - sprijeda/straga: horizontalne linije za ravnanje auta; bez libele
- * - veliki, suncano-citljivi natpisi: gore "EKSTERIJER 1/16", dolje
- *   naslov kadra + uputa + visina slikanja
- * - robusni gumbi: velika strelica natrag, velik Preskoci
+ * Kamera v4 (dizajn vlasnika 2026-09-07): svijetli okvir oko kamere,
+ * lijeva info kartica (broj kadra sa strelicama, naslov, uputa, zadnja
+ * snimka kadra), desni rail (crveni okidac - JEDINA crvena u aplikaciji,
+ * ponovi, preskoci) i CTA "Nastavi na obradu".
+ *
+ * Vodilice u kadru: zelena "ograda" (kutne zagrade + linija poda) za
+ * dijagonale - radi za svaki oblik vozila, bez modelskih silueta;
+ * horizontalne linije za ravnanje sprijeda/straga.
  *
  * Format: SVE fotke izlaze kao tocno 4:3 landscape (13.1), centralni
- * crop + resize na max 2400px sirine.
+ * crop + resize na max 2400px sirine. Ponovljeni kadar ZAMJENJUJE stari.
  */
 
 const ZONE_SHOTS = new Set(['ext-front-left', 'ext-front-right', 'ext-rear-right', 'ext-rear-left']);
@@ -55,6 +56,17 @@ export default function CameraScreen() {
   const takenFor = (shotKey: string): LocalPhoto | undefined =>
     session?.photos.find((p) => p.uri.includes(`/${shotKey}-`) || p.uri.includes(`${shotKey}-`));
 
+  const currentTaken = shot ? takenFor(shot.key) : undefined;
+  const lastPhoto = session?.photos.length
+    ? session.photos[session.photos.length - 1]
+    : undefined;
+
+  const advance = () => {
+    if (stepIndex + 1 >= GUIDED_SHOTS.length) {
+      if (id) router.replace({ pathname: '/sesija/[id]/fotografije', params: { id } });
+    } else setStepIndex((i) => i + 1);
+  };
+
   const capture = async () => {
     if (!cameraRef || busy || !id || !shot) return;
     setBusy(true);
@@ -84,19 +96,26 @@ export default function CameraScreen() {
       const stored = new File(dir, `${shot.key}-${Crypto.randomUUID().slice(0, 8)}.jpg`);
       await new File(saved.uri).move(stored);
 
-      const current = await getSession(id);
-      if (!current) return;
-      const local: LocalPhoto = {
-        id: Crypto.randomUUID(),
-        uri: stored.uri,
-        angleCategory: shot.angleCategory,
-        sortOrder: current.photos.length,
-      };
-      const updated = await updateSession(id, { photos: [...current.photos, local] });
+      // Ponovljeni kadar zamjenjuje postojecu fotku (isti sortOrder)
+      const updated = await mutateSession(id, (current) => {
+        const existing = current.photos.find(
+          (p) => p.uri.includes(`/${shot.key}-`) || p.uri.includes(`${shot.key}-`),
+        );
+        const local: LocalPhoto = {
+          id: Crypto.randomUUID(),
+          uri: stored.uri,
+          angleCategory: shot.angleCategory,
+          sortOrder: existing ? existing.sortOrder : current.photos.length,
+        };
+        return {
+          photos: existing
+            ? current.photos.map((p) => (p.id === existing.id ? local : p))
+            : [...current.photos, local],
+        };
+      });
       setSession(updated);
       void syncSession(updated);
-      if (stepIndex + 1 >= GUIDED_SHOTS.length) router.back();
-      else setStepIndex((i) => i + 1);
+      advance();
     } finally {
       setBusy(false);
     }
@@ -105,8 +124,9 @@ export default function CameraScreen() {
   if (!permission?.granted) {
     void requestPermission();
     return (
-      <View style={styles.container}>
-        <Text style={styles.hint}>Cekam dozvolu za kameru…</Text>
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <T color={alphaone.muted}>Čekam dozvolu za kameru…</T>
       </View>
     );
   }
@@ -117,37 +137,81 @@ export default function CameraScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Lijeva traka: natrag + kadrovi s napretkom */}
-      <View style={styles.leftRail}>
+      {/* Lijeva info kartica: navigacija kadrova + opis + zadnja snimka */}
+      <View style={styles.infoCard}>
+        <View style={styles.infoTop}>
+          <IconCircle glyph="←" size={40} onPress={() => router.back()} />
+          <T w="semibold" size={12} color={alphaone.muted}>
+            {shot?.section.toUpperCase()}
+          </T>
+        </View>
+
+        <View style={styles.stepper}>
+          <Pressable
+            onPress={() => setStepIndex((i) => Math.max(0, i - 1))}
+            hitSlop={12}
+            disabled={stepIndex === 0}
+            style={stepIndex === 0 ? { opacity: 0.25 } : undefined}
+          >
+            <T w="extrabold" size={30}>
+              ‹
+            </T>
+          </Pressable>
+          <T w="extrabold" size={26}>
+            {stepIndex + 1}/{GUIDED_SHOTS.length}
+          </T>
+          <Pressable
+            onPress={() => setStepIndex((i) => Math.min(GUIDED_SHOTS.length - 1, i + 1))}
+            hitSlop={12}
+            disabled={stepIndex + 1 >= GUIDED_SHOTS.length}
+            style={stepIndex + 1 >= GUIDED_SHOTS.length ? { opacity: 0.25 } : undefined}
+          >
+            <T w="extrabold" size={30}>
+              ›
+            </T>
+          </Pressable>
+        </View>
+
+        <T w="extrabold" size={18}>
+          {shot?.title}
+          {isNaslovna ? ' ★' : ''}
+        </T>
+        <T size={12} color={alphaone.muted} style={{ marginTop: 2 }}>
+          {shot?.hint}
+        </T>
+        {shot?.angleCategory === 'exterior' && (
+          <T w="semibold" size={12} style={{ marginTop: 4 }}>
+            Slikaj s visine 80–90 cm
+          </T>
+        )}
+
+        <View style={{ flex: 1 }} />
+
+        {currentTaken ? (
+          <View>
+            <Image source={{ uri: currentTaken.uri }} style={styles.refThumb} />
+            <T w="semibold" size={11} color={alphaone.green}>
+              Snimljeno ✓ — okidač zamjenjuje
+            </T>
+          </View>
+        ) : (
+          <View style={styles.refPlaceholder}>
+            <T w="semibold" size={12} color={alphaone.muted}>
+              Kadar još nije snimljen
+            </T>
+          </View>
+        )}
+
         <Pressable
-          onPress={() => router.back()}
-          hitSlop={16}
-          style={styles.backButton}
-          accessibilityLabel="Natrag"
+          style={styles.doneCta}
+          onPress={() =>
+            id && router.replace({ pathname: '/sesija/[id]/fotografije', params: { id } })
+          }
         >
-          <Text style={styles.backArrow}>←</Text>
+          <T w="bold" size={14}>
+            Nastavi na obradu ⇥
+          </T>
         </Pressable>
-        <FlatList
-          data={GUIDED_SHOTS}
-          keyExtractor={(s) => s.key}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item, index }) => {
-            const taken = takenFor(item.key);
-            const isCurrent = index === stepIndex;
-            return (
-              <Pressable
-                style={[styles.shotCircle, isCurrent && styles.shotCircleActive]}
-                onPress={() => setStepIndex(index)}
-              >
-                {taken ? (
-                  <Image source={{ uri: taken.uri }} style={styles.shotThumb} />
-                ) : (
-                  <Text style={styles.shotNumber}>{index + 1}</Text>
-                )}
-              </Pressable>
-            );
-          }}
-        />
       </View>
 
       {/* Kamera: TOCNO 4:3, letterbox oko toga */}
@@ -155,8 +219,8 @@ export default function CameraScreen() {
         <View style={styles.cameraBox}>
           <CameraView ref={setCameraRef} style={StyleSheet.absoluteFill} facing="back" />
 
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {/* Zona za dijagonale: kutne zagrade + linija poda */}
+          <View pointerEvents="none" style={styles.overlay}>
+            {/* Zelena ograda za dijagonale: kutne zagrade + linija poda */}
             {shot && ZONE_SHOTS.has(shot.key) && (
               <View style={styles.zone}>
                 <View style={[styles.corner, styles.cornerTL]} />
@@ -176,34 +240,35 @@ export default function CameraScreen() {
               </>
             )}
 
-            {/* Gore: sekcija i brojac - veliko i citljivo na suncu */}
-            <View style={styles.topPill}>
-              <Text style={styles.topPillText}>
-                {shot ? `${shot.section.toUpperCase()} ${stepIndex + 1}/${GUIDED_SHOTS.length}` : ''}
-              </Text>
-            </View>
-
-            {/* Dolje: naslov kadra + uputa + visina */}
+            {/* Naslov kadra u kadru - veliko i citljivo na suncu */}
             {shot && (
-              <View style={styles.bottomPill}>
-                <Text style={styles.bottomTitle}>
+              <View style={styles.topPill}>
+                <T w="extrabold" size={17} color="#fff">
                   {shot.title}
-                  {isNaslovna ? '  (Naslovna)' : ''}
-                </Text>
-                <Text style={styles.bottomHint}>{shot.hint}</Text>
-                {shot.angleCategory === 'exterior' && (
-                  <Text style={styles.bottomHeight}>Slikaj s visine 80–90 cm</Text>
-                )}
+                </T>
+              </View>
+            )}
+            {busy && (
+              <View style={styles.busyOverlay}>
+                <T w="extrabold" size={22} color="#fff">
+                  Spremam…
+                </T>
               </View>
             )}
           </View>
         </View>
       </View>
 
-      {/* Desna traka: okidac + preskoci */}
+      {/* Desni rail: zadnja fotka + crveni okidac + ponovi + preskoci */}
       <View style={styles.rightRail}>
+        {lastPhoto ? (
+          <Image source={{ uri: lastPhoto.uri }} style={styles.lastThumb} />
+        ) : (
+          <View style={[styles.lastThumb, styles.lastThumbEmpty]} />
+        )}
+
         <Pressable
-          style={[styles.shutter, busy && styles.shutterBusy]}
+          style={[styles.shutter, busy && { opacity: 0.5 }]}
           onPress={() => void capture()}
           disabled={busy}
           accessibilityLabel="Slikaj"
@@ -211,59 +276,78 @@ export default function CameraScreen() {
           <View style={styles.shutterInner} />
         </Pressable>
 
-        <Pressable
-          style={styles.skipButton}
-          onPress={() =>
-            stepIndex + 1 >= GUIDED_SHOTS.length ? router.back() : setStepIndex((i) => i + 1)
-          }
-          hitSlop={10}
-        >
-          <Text style={styles.skipText}>Preskoci</Text>
-        </Pressable>
+        <View style={styles.railBtn}>
+          <IconCircle glyph="⟳" size={48} onPress={() => setStepIndex((i) => Math.max(0, i - 1))} />
+          <T w="semibold" size={11} color={alphaone.muted}>
+            Natrag
+          </T>
+        </View>
+        <View style={styles.railBtn}>
+          <IconCircle glyph="⇥" size={48} onPress={advance} />
+          <T w="semibold" size={11} color={alphaone.muted}>
+            Preskoči
+          </T>
+        </View>
       </View>
     </View>
   );
 }
 
-const GUIDE = 'rgba(30, 220, 232, 0.9)';
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.black, flexDirection: 'row' },
-  leftRail: { width: 96, alignItems: 'center', paddingVertical: 10, gap: 8 },
-  backButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+  container: {
+    flex: 1,
+    backgroundColor: alphaone.bg,
+    flexDirection: 'row',
+    padding: 10,
+    gap: 10,
+  },
+  infoCard: {
+    width: 200,
+    backgroundColor: alphaone.card,
+    borderRadius: 18,
+    padding: 14,
+  },
+  infoTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  stepper: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginBottom: 6,
   },
-  backArrow: { color: colors.white, fontSize: 28, lineHeight: 30 },
-  shotCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2,
-    borderColor: colors.gray,
-    marginVertical: 5,
+  refThumb: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 10,
+    marginBottom: 4,
+    backgroundColor: alphaone.cardAlt,
+  },
+  refPlaceholder: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 10,
+    backgroundColor: alphaone.cardAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    marginBottom: 4,
   },
-  shotCircleActive: { borderColor: colors.cyan, borderWidth: 3 },
-  shotThumb: { width: '100%', height: '100%' },
-  shotNumber: { color: colors.gray, fontSize: 18, fontWeight: '600' },
+  doneCta: {
+    backgroundColor: alphaone.amber,
+    borderRadius: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
 
   cameraArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cameraBox: {
     height: '100%',
     aspectRatio: 4 / 3,
     maxWidth: '100%',
-    borderRadius: 10,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#000',
   },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 
   zone: {
     position: 'absolute',
@@ -272,7 +356,7 @@ const styles = StyleSheet.create({
     top: '20%',
     bottom: '10%',
   },
-  corner: { position: 'absolute', width: 42, height: 42, borderColor: GUIDE },
+  corner: { position: 'absolute', width: 42, height: 42, borderColor: alphaone.green },
   cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   cornerBL: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
@@ -283,7 +367,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 2,
-    backgroundColor: 'rgba(30, 220, 232, 0.45)',
+    backgroundColor: 'rgba(47, 191, 79, 0.6)',
   },
   hLine: {
     position: 'absolute',
@@ -295,48 +379,42 @@ const styles = StyleSheet.create({
 
   topPill: {
     position: 'absolute',
-    top: 10,
+    top: 8,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
-  topPillText: { color: colors.white, fontSize: 20, fontWeight: '800', letterSpacing: 1 },
-  bottomPill: {
+  busyOverlay: {
     position: 'absolute',
-    bottom: 10,
-    alignSelf: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    maxWidth: '92%',
-  },
-  bottomTitle: { color: colors.white, fontSize: 22, fontWeight: '800' },
-  bottomHint: { color: '#e8e8e8', fontSize: 15, marginTop: 2, textAlign: 'center' },
-  bottomHeight: { color: colors.cyan, fontSize: 15, fontWeight: '700', marginTop: 2 },
-
-  hint: { color: colors.gray, fontSize: 14, textAlign: 'center', marginTop: 40 },
-  rightRail: { width: 112, alignItems: 'center', justifyContent: 'center', gap: 26 },
-  shutter: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    borderWidth: 4,
-    borderColor: colors.white,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterBusy: { opacity: 0.5 },
-  shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.white },
-  skipButton: {
-    borderColor: colors.gray,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+
+  rightRail: { width: 100, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  lastThumb: {
+    width: 76,
+    height: 57,
+    borderRadius: 8,
+    backgroundColor: alphaone.cardAlt,
   },
-  skipText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  lastThumbEmpty: { borderWidth: 1, borderColor: alphaone.line },
+  shutter: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 4,
+    borderColor: '#fff',
+    backgroundColor: alphaone.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: alphaone.red },
+  railBtn: { alignItems: 'center', gap: 2 },
 });
