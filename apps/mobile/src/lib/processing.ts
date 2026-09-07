@@ -254,7 +254,10 @@ export async function processSessionPhotos(
           // Upis ODMAH - izlazak s ekrana vise ne gubi obradjeno; mutacija
           // dira samo ovu fotku pa ne gazi paralelne promjene redoslijeda
           await mutateSession(session.id, (s) => ({
-            photos: s.photos.map((p) => (p.id === photo.id ? { ...p, processedUri } : p)),
+            photos: s.photos.map((p) =>
+              // nova obrada ponistava oznaku uploada - sync salje svjezu verziju
+              p.id === photo.id ? { ...p, processedUri, processedRemotePath: undefined } : p,
+            ),
           }));
           result.processed += 1;
         } else {
@@ -281,5 +284,12 @@ export async function processSessionPhotos(
     skipped: result.skipped,
     failed: result.failed,
   });
+  // 4.7: obradjene verzije odmah u oblak (javna stranica, feed, video render)
+  if (result.processed > 0) {
+    const { getSession } = await import('@/lib/sessions');
+    const { syncSession } = await import('@/lib/sync');
+    const fresh = await getSession(session.id);
+    if (fresh) void syncSession(fresh);
+  }
   return { photos, result };
 }

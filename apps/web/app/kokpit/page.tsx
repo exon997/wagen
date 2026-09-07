@@ -34,7 +34,7 @@ export default async function KokpitPage() {
   const { data: sessions } = await supabase
     .from('photo_sessions')
     .select(
-      'id, vin, created_at, studio_processed_at, listing_id, listings (status, price_current), vehicles (make, model, engine_label, model_year), photo_session_photos (storage_path, sort_order)',
+      'id, vin, created_at, studio_processed_at, listing_id, listings (status, price_current), vehicles (make, model, engine_label, model_year), photo_session_photos (storage_path, processed_storage_path, sort_order)',
     )
     .eq('dealer_id', dealer.dealer_id)
     .order('created_at', { ascending: false })
@@ -49,7 +49,7 @@ export default async function KokpitPage() {
       if (photos[0]) {
         const { data: signed } = await supabase.storage
           .from('session-photos')
-          .createSignedUrl(photos[0].storage_path, 3600);
+          .createSignedUrl(photos[0].processed_storage_path ?? photos[0].storage_path, 3600);
         thumb = signed?.signedUrl ?? null;
       }
       return { ...s, photoCount: photos.length, thumb };

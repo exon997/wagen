@@ -831,6 +831,7 @@ export type Database = {
           angle_category: Database["public"]["Enums"]["photo_angle"] | null
           created_at: string
           id: string
+          processed_storage_path: string | null
           session_id: string
           sort_order: number
           storage_path: string
@@ -839,6 +840,7 @@ export type Database = {
           angle_category?: Database["public"]["Enums"]["photo_angle"] | null
           created_at?: string
           id?: string
+          processed_storage_path?: string | null
           session_id: string
           sort_order?: number
           storage_path: string
@@ -847,6 +849,7 @@ export type Database = {
           angle_category?: Database["public"]["Enums"]["photo_angle"] | null
           created_at?: string
           id?: string
+          processed_storage_path?: string | null
           session_id?: string
           sort_order?: number
           storage_path?: string

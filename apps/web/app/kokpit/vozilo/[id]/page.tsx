@@ -29,7 +29,7 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
   const { data: session } = await supabase
     .from('photo_sessions')
     .select(
-      'id, vin, dealer_id, listing_id, vehicles (id, make, model, engine_label, model_year), photo_session_photos (id, storage_path, angle_category, sort_order)',
+      'id, vin, dealer_id, listing_id, vehicles (id, make, model, engine_label, model_year), photo_session_photos (id, storage_path, processed_storage_path, angle_category, sort_order)',
     )
     .eq('id', id)
     .maybeSingle();
@@ -79,7 +79,7 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
       .map(async (p) => {
         const { data: signed } = await supabase.storage
           .from('session-photos')
-          .createSignedUrl(p.storage_path, 3600);
+          .createSignedUrl(p.processed_storage_path ?? p.storage_path, 3600);
         return { ...p, url: signed?.signedUrl ?? null };
       }),
   );

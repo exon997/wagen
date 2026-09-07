@@ -42,10 +42,14 @@ export async function syncSession(session: LocalSession): Promise<void> {
   await syncPhotos(session, user.id);
 }
 
-/** H2: uploada fotke koje jos nemaju remotePath; uspjesne oznacava lokalno. */
+/**
+ * H2: uploada originale koji jos nemaju remotePath, plus (4.7) obradjene
+ * verzije koje jos nemaju processedRemotePath; uspjesne oznacava lokalno.
+ */
 async function syncPhotos(session: LocalSession, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
+  await syncProcessedPhotos(session, userId);
   const pending = session.photos.filter((p) => !p.remotePath);
   if (pending.length === 0) return;
 
@@ -91,6 +95,57 @@ async function syncPhotos(session: LocalSession, userId: string): Promise<void> 
       photos: current.photos.map((p) => {
         const hit = uploaded.find((u) => u.photo.id === p.id);
         return hit ? { ...p, remotePath: hit.remotePath } : p;
+      }),
+    }));
+  }
+}
+
+/**
+ * 4.7: obradjene (AI studio) verzije idu u oblak uz originale - preduvjet
+ * server-side video rendera, javne stranice trgovca i izvoznog feeda.
+ * Redak fotke mora vec postojati (originali se sinkroniziraju prvi put
+ * kroz syncPhotos; obradjena verzija tipicno nastaje kasnije).
+ */
+async function syncProcessedPhotos(session: LocalSession, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const pending = session.photos.filter((p) => p.processedUri && !p.processedRemotePath);
+  if (pending.length === 0) return;
+
+  const uploaded: { photo: LocalPhoto; processedRemotePath: string }[] = [];
+  for (const photo of pending) {
+    try {
+      const file = new File(photo.processedUri!);
+      if (!file.exists) continue;
+      const bytes = await file.bytes();
+      const processedRemotePath = `${userId}/${session.id}/${photo.id}-processed.jpg`;
+      const { error } = await supabase.storage
+        .from('session-photos')
+        .upload(processedRemotePath, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (error) {
+        console.warn(`Upload obradjene fotke ${photo.id} nije uspio:`, error.message);
+        continue;
+      }
+      const { error: rowError } = await supabase
+        .from('photo_session_photos')
+        .update({ processed_storage_path: processedRemotePath })
+        .eq('id', photo.id);
+      if (rowError) {
+        console.warn(`Zapis obradjene fotke ${photo.id} nije uspio:`, rowError.message);
+        continue;
+      }
+      uploaded.push({ photo, processedRemotePath });
+    } catch (e) {
+      console.warn(`Sync obradjene fotke ${photo.id} preskocen:`, e);
+    }
+  }
+
+  if (uploaded.length > 0) {
+    const { mutateSession } = await import('@/lib/sessions');
+    await mutateSession(session.id, (current) => ({
+      photos: current.photos.map((p) => {
+        const hit = uploaded.find((u) => u.photo.id === p.id);
+        return hit ? { ...p, processedRemotePath: hit.processedRemotePath } : p;
       }),
     }));
   }

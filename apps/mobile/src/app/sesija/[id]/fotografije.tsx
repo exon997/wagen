@@ -62,7 +62,7 @@ export default function PhotosScreen() {
   const reprocessAll = async () => {
     if (!session || processing) return;
     const cleared = await updateSession(session.id, {
-      photos: session.photos.map(({ processedUri: _drop, ...p }) => p),
+      photos: session.photos.map(({ processedUri: _drop, processedRemotePath: _drop2, ...p }) => p),
     });
     setSession(cleared);
     await processAllFrom(cleared);

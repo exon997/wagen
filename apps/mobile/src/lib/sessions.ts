@@ -22,6 +22,8 @@ export interface LocalPhoto {
   remotePath?: string;
   /** Lokalni URI obradjene verzije (I2); original ostaje u uri. */
   processedUri?: string;
+  /** Putanja obradjene verzije u Storageu (4.7) - undefined dok ceka upload. */
+  processedRemotePath?: string;
 }
 
 export interface LookSettings {

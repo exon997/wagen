@@ -49,7 +49,7 @@ async function loadPage(slug: string) {
     (listings ?? []).map(async (l) => {
       const { data: session } = await service
         .from('photo_sessions')
-        .select('photo_session_photos (storage_path, sort_order)')
+        .select('photo_session_photos (storage_path, processed_storage_path, sort_order)')
         .eq('listing_id', l.id)
         .maybeSingle();
       const first = [...(session?.photo_session_photos ?? [])].sort(
@@ -59,7 +59,7 @@ async function loadPage(slug: string) {
       if (first) {
         const { data: signed } = await service.storage
           .from('session-photos')
-          .createSignedUrl(first.storage_path, 3600);
+          .createSignedUrl(first.processed_storage_path ?? first.storage_path, 3600);
         thumb = signed?.signedUrl ?? null;
       }
       return { ...l, thumb };
