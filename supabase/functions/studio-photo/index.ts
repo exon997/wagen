@@ -42,15 +42,25 @@ const PROMPT_EXTERIOR_BRANDED =
   'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
   'no windows, no props. The ground the car stands on IS the lower portion of the SECOND ' +
   'image: continue its exact colors and gradient onto the floor (do NOT darken, recolor or ' +
-  'replace it), with only a subtle reflection of the car. The final background from top to ' +
-  'bottom must look like the SECOND image. This is a background replacement, NOT a scene composition: ' +
-  'the main vehicle of the first image must remain in EXACTLY the same position, size, crop ' +
-  'and camera angle - pixel-faithful body panels, lights, grille, wheels, tires, window ' +
-  'tint, emblems and license plate (including any blur or graphic applied to the plate); ' +
-  'never redraw them. CRITICAL: the output must contain ONLY that one vehicle - remove ' +
-  'every other vehicle, person and object from the original photo (parked cars, buildings, ' +
-  'bins, equipment). Ground the car with a natural shadow and subtle floor reflection. ' +
-  'Photorealistic, high-end dealership listing quality.';
+  'replace it), but render that floor as a polished showroom surface with a CLEAR soft ' +
+  'mirror reflection of the car beneath it. The final background from top to bottom must ' +
+  'look like the SECOND image. The car must sit firmly grounded on that floor with a ' +
+  'natural contact shadow - never floating - keeping EXACTLY the same position, size, crop ' +
+  'and camera angle as in the FIRST image. This is a background replacement, NOT a scene ' +
+  'composition: pixel-faithful body panels, lights, grille, wheels, tires, window tint and ' +
+  'emblems; never redraw them. CRITICAL: the output must contain ONLY that one vehicle - ' +
+  'remove every other vehicle, person and object from the original photo (parked cars, ' +
+  'buildings, bins, equipment). Photorealistic, high-end dealership listing quality.';
+
+// Tablice: deterministicka grafika (na uredjaju) ima prednost; ovo je
+// mrezica za slucaj kad OCR detekcija promasi (2026-09-07: count 0 na
+// sve tri Mini fotke) - AI zamjenjuje registraciju cistom plocicom s
+// natpisom salona.
+const promptPlates = (dealerName: string) =>
+  ` License plate rule: if the plate already carries a branded graphic overlay, keep it ` +
+  `pixel-faithful. If it still shows a real registration, replace the plate content with a ` +
+  `clean black plate with the dealership wordmark "${dealerName}" in white bold italic ` +
+  `letters, keeping the plate's exact position, size and perspective.`;
 
 const PROMPT_SESSION_REF =
   ' The THIRD image shows another photo of this SAME car already placed in this studio - ' +
@@ -98,6 +108,7 @@ Deno.serve(async (req) => {
 
   // Dealer kontekst preko sesije (server je istina, klijent ne salje dealerId)
   let brandedBackground: string | null = null;
+  let dealerDisplayName: string | null = null;
   let sessionRef: string | null = null;
   let sessionRefPath: string | null = null;
   if (body?.sessionId) {
@@ -154,10 +165,11 @@ Deno.serve(async (req) => {
             .from('dealer-assets')
             .download(dealer.studio_background_path);
           if (file) brandedBackground = toBase64(new Uint8Array(await file.arrayBuffer()));
+          if (brandedBackground) dealerDisplayName = dealer.display_name;
           // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07).
           // Verzija u imenu: promjena prompta ponistava stara sidra sama od sebe.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v2.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v3.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);
@@ -187,7 +199,9 @@ Deno.serve(async (req) => {
                 : []),
               {
                 text: brandedBackground
-                  ? PROMPT_EXTERIOR_BRANDED + (sessionRef ? PROMPT_SESSION_REF : '')
+                  ? PROMPT_EXTERIOR_BRANDED +
+                    (dealerDisplayName ? promptPlates(dealerDisplayName) : '') +
+                    (sessionRef ? PROMPT_SESSION_REF : '')
                   : kind === 'interior'
                     ? PROMPT_INTERIOR
                     : PROMPT_EXTERIOR,
