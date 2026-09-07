@@ -22,6 +22,8 @@ export interface CrosspostInput {
   condition: 'bez-stete' | 'popravljena-steta' | 'osteceno' | null;
   isNew: boolean;
   description: string | null;
+  /** Naknadno ugradjena oprema (Dodatno 4) - rucni unos prodavaca. */
+  retrofitEquipment?: string[] | undefined;
   /** Obavezno samo kad vozilo nije u Outvin cacheu. */
   make?: string | undefined;
   model?: string | undefined;
@@ -135,6 +137,9 @@ export async function crosspostSession(
         ...(input.ownersCount != null ? { owners_count: input.ownersCount } : {}),
         ...(input.serviceBook ? { service_book: input.serviceBook } : {}),
         ...(input.isNew ? { is_new: true } : {}),
+        ...(input.retrofitEquipment && input.retrofitEquipment.length > 0
+          ? { retrofit_equipment: input.retrofitEquipment }
+          : {}),
       },
     })
     .select('id')
