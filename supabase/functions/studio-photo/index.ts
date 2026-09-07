@@ -42,20 +42,23 @@ const PROMPT_EXTERIOR_BRANDED =
   'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
   'no windows, no props. The ground the car stands on IS the lower portion of the SECOND ' +
   'image: continue its exact colors and gradient onto the floor (do NOT darken, recolor or ' +
-  'replace it), but render that floor as a polished showroom surface with a CLEAR soft ' +
-  'mirror reflection of the car beneath it. The final background from top to bottom must ' +
-  'look like the SECOND image. The car must sit firmly grounded on that floor with a ' +
-  'natural contact shadow - never floating. COMPOSITION RULES: compose like a ' +
-  'professional catalog photo - the car HORIZONTALLY CENTERED with equal empty margins to ' +
-  'the left and right frame edges; the top band of the backdrop with the dealership logos ' +
-  'must stay fully visible ABOVE the car (no part of the car may cover the logos); ' +
-  'vertically the car occupies the space BELOW that logo band, with the gap between the ' +
-  'logo band and the top of the car roughly EQUAL to the gap between the bottom of the ' +
-  'car (its wheels/shadow) and the bottom frame edge. You may reposition and rescale the ' +
-  'car IN THE FRAME to achieve this composition, but keep its exact viewing angle and ' +
-  'perspective from the FIRST image and NEVER alter the car itself: pixel-faithful body ' +
-  'panels, lights, grille, wheels, tires, window tint and ' +
-  'emblems; never redraw them. CRITICAL: the output must contain ONLY that one vehicle - ' +
+  'replace it), rendered as a lightly polished surface with only a FAINT, subtle ' +
+  'reflection of the car that fades out quickly below the tires - NOT a mirror image, ' +
+  'barely visible gloss. The final background from top to bottom must look like the ' +
+  'SECOND image. The car must sit firmly grounded with a natural contact shadow - never ' +
+  'floating. COMPOSITION RULES (fix any user framing mistakes by repositioning and ' +
+  'rescaling the car IN THE FRAME): the car is the DOMINANT subject and must FILL the ' +
+  'frame - its width spans roughly 80-85% of the image width, horizontally centered with ' +
+  'equal small margins (about 8% of the width) on the left and right; the top band of the ' +
+  'backdrop with the dealership logos stays fully visible ABOVE the car with only a small ' +
+  'gap between the logos and the car roof; the wheels sit LOW in the frame so that only a ' +
+  'narrow floor strip (about 10-12% of the image height) remains below the tires. Keep ' +
+  'the exact viewing angle and perspective from the FIRST image and NEVER alter the car ' +
+  'itself: pixel-faithful body panels, lights, grille, wheels, tires, window tint and ' +
+  'emblems; never redraw them. COLOR LOCK: the car keeps its EXACT paint color, darkness ' +
+  'and finish from the FIRST image - do not brighten, relight or recolor it; the backdrop ' +
+  'keeps the EXACT tonal range of the SECOND image (its dark areas stay equally dark). ' +
+  'CRITICAL: the output must contain ONLY that one vehicle - ' +
   'remove every other vehicle, person and object from the original photo (parked cars, ' +
   'buildings, bins, equipment). Photorealistic, high-end dealership listing quality.';
 
@@ -176,7 +179,7 @@ Deno.serve(async (req) => {
           // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07).
           // Verzija u imenu: promjena prompta ponistava stara sidra sama od sebe.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v4.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v5.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);
