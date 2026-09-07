@@ -151,16 +151,17 @@ async function processOne(
 
   const shotKey = shotKeyFromUri(photo.uri) ?? 'nepoznat';
 
-  // Studio + salon: tablicu rjesava AI pravilo u oblaku (perspektiva,
-  // pokriva i plavu EU traku - terenski 2026-09-07 bolji od lokalnog
-  // overlaya). Lokalni overlay/blur ostaje za Diskretnu/Original.
-  const plateHandledByCloud =
-    look.background === 'studio' && !!dealer && photo.angleCategory === 'exterior';
+  // Tablice (dizajn 2026-09-07, dva prekidaca): "Zamijeni" (brandirane) ima
+  // prednost i u studio+salon modu je rjesava AI pravilo u oblaku
+  // (perspektiva, pokriva i plavu EU traku); "Sakrij" (blur) je lokalan.
+  const replaceInCloud =
+    look.background === 'studio' &&
+    !!dealer &&
+    photo.angleCategory === 'exterior' &&
+    look.replacePlates !== false;
 
-  // I4: sakrij registarske oznake (radi na svim uredjajima). Salon s
-  // grafikom tablice dobiva deterministicki overlay umjesto blura (9).
   let workingUri = photo.uri;
-  if (look.hidePlates && !plateHandledByCloud) {
+  if (look.hidePlates && !replaceInCloud) {
     const isExterior = photo.angleCategory === 'exterior';
     try {
       const plates = await findPlateRegions(photo.uri);
@@ -192,7 +193,8 @@ async function processOne(
         shotKey,
         sessionId,
         look.backgroundId,
-        look.hidePlates,
+        // edge zamjenjuje tablicu brandiranom samo kad je "Zamijeni" ukljucen
+        look.replacePlates !== false,
       );
       if (cloudUri) return cloudUri;
       // pad oblaka: eksterijer nastavlja na nativni pipeline ispod

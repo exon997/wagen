@@ -15,6 +15,8 @@ import { getSupabase } from '@/lib/supabase';
 export interface DealerBackground {
   id: string;
   name: string;
+  /** Lokalni thumbnail za picker u Pripremi (null dok se ne skine). */
+  localUri: string | null;
 }
 
 export interface DealerContext {
@@ -86,14 +88,38 @@ export async function refreshDealerContext(): Promise<DealerContext | null> {
 
     const { data: backgroundRows } = await supabase
       .from('dealer_backgrounds')
-      .select('id, name')
+      .select('id, name, storage_path')
       .eq('dealer_id', row.dealer_id)
       .order('sort_order');
+
+    // Thumbnaili pozadina za picker (dizajn 2026-09-07) - keširano lokalno
+    const backgrounds: DealerBackground[] = [];
+    for (const b of backgroundRows ?? []) {
+      let localUri: string | null = null;
+      try {
+        const dest = `${FileSystem.cacheDirectory}dealer-bg-${b.id}.png`;
+        const info = await FileSystem.getInfoAsync(dest);
+        if (info.exists) {
+          localUri = dest;
+        } else {
+          const { data: signed } = await supabase.storage
+            .from('dealer-assets')
+            .createSignedUrl(b.storage_path, 3600);
+          if (signed?.signedUrl) {
+            await FileSystem.downloadAsync(signed.signedUrl, dest);
+            localUri = dest;
+          }
+        }
+      } catch {
+        // bez thumbnaila - picker pokazuje samo ime
+      }
+      backgrounds.push({ id: b.id, name: b.name, localUri });
+    }
 
     const ctx: DealerContext = {
       dealerId: row.dealer_id,
       displayName: row.display_name,
-      backgrounds: (backgroundRows ?? []).map((b) => ({ id: b.id, name: b.name })),
+      backgrounds,
       studioMonthlyLimit: row.studio_monthly_limit ?? 100,
       studioUsedThisMonth: Number(row.studio_used_this_month ?? 0),
       hasBrandedBackground: !!row.studio_background_path,

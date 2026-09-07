@@ -4,6 +4,9 @@ import 'react-native-url-polyfill/auto';
 import { Component, useEffect, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
+import { alphaone } from '@wagen/domain';
+import { FONTS } from '@/ui/kit';
 import { ensureSession } from '@/lib/supabase';
 import { syncAllSessions } from '@/lib/sync';
 import { installCrashLogger } from '@/lib/crash-log';
@@ -39,6 +42,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 export default function RootLayout() {
+  // AlphaOne identitet (2026-09-07): Exo 2 kroz cijelu aplikaciju
+  const [fontsLoaded] = useFonts(FONTS);
+
   // 4.3: anonimna sesija na startu - bez registracijske vratarnice
   useEffect(() => {
     ensureSession()
@@ -46,12 +52,19 @@ export default function RootLayout() {
       .catch((e: unknown) => console.warn('Sesija/sync pri startu nije uspio:', e));
   }, []);
 
+  if (!fontsLoaded) return null; // splash ostaje dok se font ne ucita
+
   return (
     <ErrorBoundary>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: '#000000' },
-          headerTintColor: '#FFFFFF',
+          // Legacy ekrani zadrzavaju header dok ne dobiju redizajn; novi
+          // ekrani ga gase (Stack.Screen headerShown:false) i crtaju svoj.
+          headerStyle: { backgroundColor: alphaone.bg },
+          headerTintColor: alphaone.ink,
+          headerTitleStyle: { fontFamily: 'Exo2-Bold' },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: alphaone.bg },
         }}
       />
     </ErrorBoundary>

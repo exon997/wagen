@@ -168,6 +168,27 @@ Oba tipa korisnika u aplikaciji rade identičan posao: **VIN sken → podaci o v
 >   post-launch odluku iz 21) — dio dealer akvizicije: "kad netko
 >   preuzme aplikaciju, ima što vidjeti".
 >
+> **AlphaOne vizualni identitet (ODLUČENO 2026-09-07, dizajn vlasnika):**
+> - AlphaOne kao pro alat ima VLASTITI identitet, odvojen od oglasnika:
+>   svijetla tema (svijetlosiva podloga, bijele kartice, krupan crni
+>   tekst — čitljivo na suncu), font **Exo 2**, akcent **narančasta**.
+>   Oglasnik wagen.hr i svi potrošački artefakti (Izlog, Ekspoze, javna
+>   stranica, format cijene) OSTAJU na cyan #1EDCE8 (6.3/13.1).
+> - **Disciplina tri boje:** narančasta = akcije/navigacija; zelena =
+>   isključivo odabrano/uspjeh (uz tekstualnu oznaku radi daltonizma);
+>   crvena = isključivo okidač kamere.
+> - **Social video/carousel MORAJU biti u aplikaciji prije lansiranja**
+>   (dijeljenje na mreže ide s mobitela); do render-workera kartice su
+>   "uskoro".
+> - **Naknadno ugrađena oprema (retrofit) — ODLUČENO, vrijedi za cijeli
+>   oglasnik:** posebna kategorija opreme koju prodavač sam unosi (kuka,
+>   Akrapovič...); jasno odvojena od tvorničke opreme iz VIN-a. Podatak
+>   živi na oglasu (`attributes.retrofit_equipment`), prikazuje se u
+>   aplikaciji, Kokpitu, oglasniku, Ekspozeu i feedu. Popis opreme se
+>   svugdje prikazuje kao PREGLEDNA LISTA, ne gumbi.
+> - Dossier (Ekspoze PDF) preuzimanje ide i U APLIKACIJU (slanje kupcu
+>   s mobitela); Izlog ostaje samo u Kokpitu.
+>
 > Tekst ispod je povijesni kontekst originalne Faze 0 (pending pool,
 > cjenovna baza kao nusprodukt i Blitzkrieg logika ostaju validni koncepti
 > — samo se punjenje sada primarno oslanja na trgovce, ne na FB grupe).

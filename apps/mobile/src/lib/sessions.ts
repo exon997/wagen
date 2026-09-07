@@ -30,11 +30,19 @@ export interface LookSettings {
   background: 'original' | 'blur' | 'studio';
   /** Odabrana pozadina salona (dealer_backgrounds.id); undefined = zadana. */
   backgroundId?: string;
+  /** Zamuti tablice (blur). */
   hidePlates: boolean;
+  /** Zamijeni tablice brandiranima (salon; ima prednost pred blurom). */
+  replacePlates?: boolean;
   enhance: boolean;
 }
 
-export const DEFAULT_LOOK: LookSettings = { background: 'blur', hidePlates: true, enhance: true };
+export const DEFAULT_LOOK: LookSettings = {
+  background: 'blur',
+  hidePlates: true,
+  replacePlates: true,
+  enhance: true,
+};
 
 export interface VehicleInfo {
   make: string;

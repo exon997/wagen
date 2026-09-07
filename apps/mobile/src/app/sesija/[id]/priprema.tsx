@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { colors } from '@wagen/domain';
+import { alphaone } from '@wagen/domain';
+import { Card, Cta, IconCircle, T, ToggleRow, Wordmark } from '@/ui/kit';
 import { getCachedDealerContext, type DealerContext } from '@/lib/dealer';
 import { DEFAULT_LOOK, getSession, updateSession, type LookSettings } from '@/lib/sessions';
 
 /**
- * Korak 2 flowa: Priprema - odabir izgleda PRIJE fotografiranja.
- * Pozadina: Original / Diskretna (zamucena) / Studio (predlozak);
- * toggles: sakrij registarske oznake, automatska dorada.
+ * Priprema v2 (dizajn vlasnika 2026-09-07): opcije pozadine kao kartice
+ * (zeleni obrub + kvacica = odabrano), pozadine salona kao THUMBNAILI,
+ * tri prekidaca (Sakrij/Zamijeni tablice, Dorada) s tekstualnim stanjem,
+ * CTA vodi ravno na fotografiranje.
  */
 export default function PrepScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,7 +21,7 @@ export default function PrepScreen() {
   useEffect(() => {
     if (id) {
       void getSession(id).then((s) => {
-        if (s?.look) setLook(s.look);
+        if (s?.look) setLook({ ...DEFAULT_LOOK, ...s.look });
         if (s?.dealerId) void getCachedDealerContext().then(setDealer);
       });
     }
@@ -32,121 +34,134 @@ export default function PrepScreen() {
 
   const backgrounds: { key: LookSettings['background']; title: string; desc: string }[] = [
     { key: 'original', title: 'Original', desc: 'Fotografije bez promjene pozadine' },
-    { key: 'blur', title: 'Diskretna', desc: 'Pozadina se zamuti, auto ostaje ostar' },
-    { key: 'studio', title: 'Studio', desc: 'AI studio obrada - treba internet, ~15 s po fotografiji' },
+    { key: 'blur', title: 'Diskretna', desc: 'Pozadina se zamuti, auto ostaje oštar' },
+    {
+      key: 'studio',
+      title: 'Studio',
+      desc: 'AI studio obrada — potreban internet, ~15 s po fotografiji',
+    },
   ];
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Priprema' }} />
-      <Text style={styles.sectionTitle}>Pozadina fotografija</Text>
-      {backgrounds.map((b) => (
-        <Pressable
-          key={b.key}
-          style={[styles.option, look.background === b.key && styles.optionActive]}
-          onPress={() => void save({ ...look, background: b.key })}
-        >
-          <Text style={styles.optionTitle}>{b.title}</Text>
-          <Text style={styles.optionDesc}>{b.desc}</Text>
-        </Pressable>
-      ))}
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.header}>
+        <Wordmark small />
+        <IconCircle glyph="⌂" onPress={() => router.dismissTo('/')} />
+      </View>
 
-      {look.background === 'studio' && dealer && dealer.backgrounds.length > 1 && (
-        <>
-          <Text style={styles.subLabel}>Pozadina salona</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bgRow}>
-            {dealer.backgrounds.map((bg, i) => {
-              const active = look.backgroundId ? look.backgroundId === bg.id : i === 0;
-              return (
-                <Pressable
-                  key={bg.id}
-                  style={[styles.bgChip, active && styles.bgChipActive]}
-                  onPress={() => void save({ ...look, backgroundId: bg.id })}
-                >
-                  <Text style={[styles.bgChipText, active && styles.bgChipTextActive]}>
-                    {bg.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </>
-      )}
+      <Card>
+        <T w="extrabold" size={24} style={{ marginBottom: 14 }}>
+          Pozadina fotografija
+        </T>
+        {backgrounds.map((b) => {
+          const active = look.background === b.key;
+          return (
+            <Pressable
+              key={b.key}
+              style={[styles.option, active && styles.optionActive]}
+              onPress={() => void save({ ...look, background: b.key })}
+            >
+              <View style={{ flex: 1 }}>
+                <T w="bold" size={18}>
+                  {b.title}
+                  {active ? '  ✓' : ''}
+                </T>
+                <T size={13} color={alphaone.muted}>
+                  {b.desc}
+                </T>
+              </View>
+            </Pressable>
+          );
+        })}
 
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleText}>
-          <Text style={styles.optionTitle}>Sakrij registarske oznake</Text>
-          <Text style={styles.optionDesc}>Tablice se automatski zamute</Text>
-        </View>
-        <Switch
+        {look.background === 'studio' && dealer && dealer.backgrounds.length > 0 && (
+          <>
+            <T w="semibold" size={15} color={alphaone.muted} style={{ marginTop: 8, marginBottom: 8, fontStyle: 'italic' }}>
+              Odaberi pozadinu
+            </T>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {dealer.backgrounds.map((bg, i) => {
+                const active = look.backgroundId ? look.backgroundId === bg.id : i === 0;
+                return (
+                  <Pressable
+                    key={bg.id}
+                    style={[styles.bgThumbWrap, active && styles.bgThumbActive]}
+                    onPress={() => void save({ ...look, backgroundId: bg.id })}
+                  >
+                    {bg.localUri ? (
+                      <Image source={{ uri: bg.localUri }} style={styles.bgThumb} />
+                    ) : (
+                      <View style={[styles.bgThumb, { backgroundColor: alphaone.cardAlt }]} />
+                    )}
+                    <T w="semibold" size={12} color={active ? alphaone.green : alphaone.muted}>
+                      {bg.name}
+                      {active ? ' ✓' : ''}
+                    </T>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+      </Card>
+
+      <Card>
+        <ToggleRow
+          title="Sakrij registarske oznake"
+          subtitle="Tablice se automatski zamute"
           value={look.hidePlates}
-          onValueChange={(v) => void save({ ...look, hidePlates: v })}
-          trackColor={{ true: colors.cyan, false: colors.gray }}
+          onChange={(v) => void save({ ...look, hidePlates: v })}
         />
-      </View>
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleText}>
-          <Text style={styles.optionTitle}>Automatska dorada</Text>
-          <Text style={styles.optionDesc}>Blago poboljsanje boja i kontrasta</Text>
-        </View>
-        <Switch
+        {dealer && (
+          <ToggleRow
+            title="Zamijeni registarske tablice"
+            subtitle="Zamjena brendiranim tablicama salona"
+            value={look.replacePlates !== false}
+            onChange={(v) => void save({ ...look, replacePlates: v })}
+          />
+        )}
+        <ToggleRow
+          title="Automatska dorada"
+          subtitle="Prilagođavanje kontrasta i boje"
           value={look.enhance}
-          onValueChange={(v) => void save({ ...look, enhance: v })}
-          trackColor={{ true: colors.cyan, false: colors.gray }}
+          onChange={(v) => void save({ ...look, enhance: v })}
         />
-      </View>
+      </Card>
 
-      <Pressable
-        style={styles.primary}
-        onPress={() => {
-          if (id) router.replace({ pathname: '/sesija/[id]/kamera', params: { id } });
-        }}
-      >
-        <Text style={styles.primaryText}>Kreni na fotografiranje</Text>
-      </Pressable>
-    </View>
+      <Cta
+        label="Nastavi na fotografiranje"
+        onPress={() => router.replace({ pathname: '/sesija/[id]/kamera', params: { id: id! } })}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.black, padding: 24 },
-  sectionTitle: { color: colors.gray, fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
-  subLabel: { color: colors.gray, fontSize: 12, marginTop: 4, marginBottom: 6 },
-  bgRow: { flexGrow: 0, marginBottom: 10 },
-  bgChip: {
-    borderColor: colors.gray,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
+  screen: { flex: 1, backgroundColor: alphaone.bg },
+  content: { padding: 18, paddingTop: 40, paddingBottom: 36 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  bgChipActive: { borderColor: colors.cyan, backgroundColor: 'rgba(30,220,232,0.12)' },
-  bgChipText: { color: colors.gray, fontSize: 13 },
-  bgChipTextActive: { color: colors.cyan, fontWeight: '600' },
   option: {
-    borderColor: colors.gray,
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: alphaone.line,
+    borderRadius: 18,
     padding: 14,
     marginBottom: 10,
   },
-  optionActive: { borderColor: colors.cyan, borderWidth: 2, backgroundColor: '#0a1a1c' },
-  optionTitle: { color: colors.white, fontSize: 16, fontWeight: '600' },
-  optionDesc: { color: colors.gray, fontSize: 13, marginTop: 2 },
-  toggleRow: {
-    flexDirection: 'row',
+  optionActive: { borderColor: alphaone.green },
+  bgThumbWrap: {
+    marginRight: 12,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    padding: 3,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
   },
-  toggleText: { flex: 1, paddingRight: 12 },
-  primary: {
-    backgroundColor: colors.cyan,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 28,
-  },
-  primaryText: { color: colors.black, fontWeight: '700', fontSize: 16 },
+  bgThumbActive: { borderColor: alphaone.green },
+  bgThumb: { width: 132, height: 96, borderRadius: 8 },
 });
