@@ -38,7 +38,9 @@ const PROMPT_EXTERIOR_BRANDED =
   'Edit the FIRST image (a car photo). The SECOND image is the dealership branded ' +
   'studio BACKDROP - a flat printed wall design. Replace the entire background of the ' +
   'first photo so the car stands in a clean studio in front of EXACTLY this backdrop: ' +
-  'reproduce its gradient, colors and logos faithfully (logos readable and undistorted). ' +
+  'reproduce its gradient, colors and logos faithfully (logos readable and undistorted); ' +
+  'if the backdrop contains fine line patterns, drawings or illustrations, render them ' +
+  'CLEARLY and COMPLETELY - never fade, simplify or omit them. ' +
   'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
   'no windows, no props. The ground the car stands on IS the lower portion of the SECOND ' +
   'image: continue its exact colors and gradient onto the floor (do NOT darken, recolor or ' +
@@ -94,10 +96,20 @@ const PROMPT_INTERIOR =
 // rendera PROVJERI polozaj auta (jeftini vision poziv -> bbox) i po
 // potrebi JEDNOM ponovi render s korektivnom uputom. Tolerancije:
 // centar +/-5% sirine, donja margina 3-20% visine, sirina auta >=65%.
-async function carBounds(
+interface QualityResult {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  backdropMatch: boolean;
+  plateClean: boolean;
+}
+
+async function qualityCheck(
   geminiKey: string,
   imageB64: string,
-): Promise<{ x0: number; y0: number; x1: number; y1: number } | null> {
+  backdropB64: string,
+): Promise<QualityResult | null> {
   try {
     const res = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
@@ -109,8 +121,10 @@ async function carBounds(
             {
               parts: [
                 { inline_data: { mime_type: 'image/png', data: imageB64 } },
+                { inline_data: { mime_type: 'image/png', data: backdropB64 } },
                 {
-                  text: 'Return ONLY JSON, no prose: the bounding box of the car in this image as fractions of image width/height, e.g. {"x0":0.1,"y0":0.2,"x1":0.9,"y1":0.85}',
+                  text:
+                    'Return ONLY JSON, no prose: {"x0":0.1,"y0":0.2,"x1":0.9,"y1":0.85,"backdropMatch":true,"plateClean":true} where x0..y1 is the bounding box of the car in IMAGE 1 as fractions of width/height; backdropMatch is true only if the background of IMAGE 1 clearly reproduces the wall design of IMAGE 2 (same patterns, line drawings, illustrations and logos - not a plain/blurred substitute); plateClean is true only if the license plate does NOT show a real vehicle registration (it is either a branded/blank plate or not visible).',
                 },
               ],
             },
@@ -124,19 +138,27 @@ async function carBounds(
     };
     const text = j?.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
     if (!text) return null;
-    const box = JSON.parse(text) as { x0: number; y0: number; x1: number; y1: number };
-    if ([box.x0, box.y0, box.x1, box.y1].some((v) => typeof v !== 'number')) return null;
-    return box;
+    const q = JSON.parse(text) as QualityResult;
+    if ([q.x0, q.y0, q.x1, q.y1].some((v) => typeof v !== 'number')) return null;
+    return q;
   } catch {
     return null;
   }
 }
 
-function framingHint(box: { x0: number; y0: number; x1: number; y1: number }): string | null {
+function framingHint(box: QualityResult, expectPlateClean: boolean): string | null {
   const cx = (box.x0 + box.x1) / 2;
   const width = box.x1 - box.x0;
   const bottomGap = 1 - box.y1;
   const problems: string[] = [];
+  if (expectPlateClean && box.plateClean === false)
+    problems.push(
+      'the license plate STILL shows the original registration - replace the entire plate face (including the blue EU band) with the black dealership wordmark plate as instructed',
+    );
+  if (box.backdropMatch === false)
+    problems.push(
+      'the background LOST the backdrop design - reproduce the SECOND image wall completely and clearly, including its fine lines, illustrations and patterns; do not fade, blur or omit them',
+    );
   if (cx < 0.45) problems.push('the car sits too far LEFT - move it right so it is horizontally centered');
   if (cx > 0.55) problems.push('the car sits too far RIGHT - move it left so it is horizontally centered');
   if (width < 0.65) problems.push('the car is too SMALL - enlarge it to about 80-85% of the image width');
@@ -261,7 +283,7 @@ Deno.serve(async (req) => {
           // Referenca sesije PO POZADINI: prva studio fotka sidri sljedece;
           // verzija u imenu ponistava stara sidra pri promjeni prompta.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v6-${bgKey}.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v7-${bgKey}.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);
@@ -324,17 +346,20 @@ Deno.serve(async (req) => {
   let out = first.out;
   let framingRetried = false;
 
-  // Kontrola kadra: provjeri bbox, po potrebi JEDNOM ponovi s korekcijom
+  // Kontrola kvalitete: kadar + vjernost backdropa; po potrebi JEDNOM
+  // ponovi s konkretnom korekcijom (terenski 2026-09-07: model zna
+  // "izgubiti" fine linije backdropa - geometrijska provjera to nije vidjela)
   if (brandedBackground) {
-    const box = await carBounds(geminiKey, out);
-    const hint = box ? framingHint(box) : null;
+    const expectPlateClean = body?.hidePlates !== false;
+    const check = await qualityCheck(geminiKey, out, brandedBackground);
+    const hint = check ? framingHint(check, expectPlateClean) : null;
     if (hint) {
       framingRetried = true;
       const second = await render(basePrompt + hint);
       if (second.out) {
-        const box2 = await carBounds(geminiKey, second.out);
-        // uzmi drugu samo ako je prosla (ili ako je prva bila gora od tolerancije, a druga nije provjerljiva)
-        if (!box2 || !framingHint(box2)) out = second.out;
+        const check2 = await qualityCheck(geminiKey, second.out, brandedBackground);
+        // uzmi drugu samo ako je prosla provjeru
+        if (!check2 || !framingHint(check2, expectPlateClean)) out = second.out;
       }
     }
   }
