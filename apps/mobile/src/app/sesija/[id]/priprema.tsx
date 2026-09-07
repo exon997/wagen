@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
+import { getCachedDealerContext, type DealerContext } from '@/lib/dealer';
 import { DEFAULT_LOOK, getSession, updateSession, type LookSettings } from '@/lib/sessions';
 
 /**
@@ -13,11 +14,13 @@ export default function PrepScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [look, setLook] = useState<LookSettings>(DEFAULT_LOOK);
+  const [dealer, setDealer] = useState<DealerContext | null>(null);
 
   useEffect(() => {
     if (id) {
       void getSession(id).then((s) => {
         if (s?.look) setLook(s.look);
+        if (s?.dealerId) void getCachedDealerContext().then(setDealer);
       });
     }
   }, [id]);
@@ -47,6 +50,28 @@ export default function PrepScreen() {
           <Text style={styles.optionDesc}>{b.desc}</Text>
         </Pressable>
       ))}
+
+      {look.background === 'studio' && dealer && dealer.backgrounds.length > 1 && (
+        <>
+          <Text style={styles.subLabel}>Pozadina salona</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bgRow}>
+            {dealer.backgrounds.map((bg, i) => {
+              const active = look.backgroundId ? look.backgroundId === bg.id : i === 0;
+              return (
+                <Pressable
+                  key={bg.id}
+                  style={[styles.bgChip, active && styles.bgChipActive]}
+                  onPress={() => void save({ ...look, backgroundId: bg.id })}
+                >
+                  <Text style={[styles.bgChipText, active && styles.bgChipTextActive]}>
+                    {bg.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      )}
 
       <View style={styles.toggleRow}>
         <View style={styles.toggleText}>
@@ -86,6 +111,19 @@ export default function PrepScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black, padding: 24 },
   sectionTitle: { color: colors.gray, fontSize: 13, marginBottom: 10, textTransform: 'uppercase' },
+  subLabel: { color: colors.gray, fontSize: 12, marginTop: 4, marginBottom: 6 },
+  bgRow: { flexGrow: 0, marginBottom: 10 },
+  bgChip: {
+    borderColor: colors.gray,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 8,
+  },
+  bgChipActive: { borderColor: colors.cyan, backgroundColor: 'rgba(30,220,232,0.12)' },
+  bgChipText: { color: colors.gray, fontSize: 13 },
+  bgChipTextActive: { color: colors.cyan, fontWeight: '600' },
   option: {
     borderColor: colors.gray,
     borderWidth: 1,

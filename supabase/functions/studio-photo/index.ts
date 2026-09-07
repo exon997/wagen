@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
     image?: string;
     kind?: string;
     sessionId?: string;
+    backgroundId?: string;
   } | null;
   const image = body?.image;
   const kind = body?.kind === 'interior' ? 'interior' : 'exterior';
@@ -161,8 +162,10 @@ Deno.serve(async (req) => {
             .eq('id', session.id)
             .is('studio_processed_at', null);
         }
-        // Brandirana pozadina (samo eksterijer)
-        if (kind === 'exterior' && dealer.studio_background_path) {
+        // Brandirana pozadina (samo eksterijer): odabrana iz dealer_backgrounds
+        // (2026-09-07: vise pozadina po salonu, izbor u Pripremi); zadana =
+        // najmanji sort_order; fallback stara kolona.
+        if (kind === 'exterior') {
           const toBase64 = (buf: Uint8Array) => {
             let binary = '';
             const chunk = 8192;
@@ -171,15 +174,33 @@ Deno.serve(async (req) => {
             }
             return btoa(binary);
           };
-          const { data: file } = await service.storage
-            .from('dealer-assets')
-            .download(dealer.studio_background_path);
-          if (file) brandedBackground = toBase64(new Uint8Array(await file.arrayBuffer()));
+          let bgPath: string | null = null;
+          let bgKey = 'default';
+          const { data: backgrounds } = await service
+            .from('dealer_backgrounds')
+            .select('id, storage_path')
+            .eq('dealer_id', dealer.id)
+            .order('sort_order')
+            .limit(20);
+          if (backgrounds && backgrounds.length > 0) {
+            const chosen = body?.backgroundId
+              ? backgrounds.find((b) => b.id === body.backgroundId)
+              : null;
+            const pick = chosen ?? backgrounds[0]!;
+            bgPath = pick.storage_path;
+            bgKey = pick.id;
+          } else if (dealer.studio_background_path) {
+            bgPath = dealer.studio_background_path;
+          }
+          if (bgPath) {
+            const { data: file } = await service.storage.from('dealer-assets').download(bgPath);
+            if (file) brandedBackground = toBase64(new Uint8Array(await file.arrayBuffer()));
+          }
           if (brandedBackground) dealerDisplayName = dealer.display_name;
-          // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07).
-          // Verzija u imenu: promjena prompta ponistava stara sidra sama od sebe.
+          // Referenca sesije PO POZADINI: prva studio fotka sidri sljedece;
+          // verzija u imenu ponistava stara sidra pri promjeni prompta.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v5.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v5-${bgKey}.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);

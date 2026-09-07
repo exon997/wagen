@@ -28,6 +28,8 @@ export interface LocalPhoto {
 
 export interface LookSettings {
   background: 'original' | 'blur' | 'studio';
+  /** Odabrana pozadina salona (dealer_backgrounds.id); undefined = zadana. */
+  backgroundId?: string;
   hidePlates: boolean;
   enhance: boolean;
 }

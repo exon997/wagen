@@ -178,6 +178,41 @@ export type Database = {
           },
         ]
       }
+      dealer_backgrounds: {
+        Row: {
+          created_at: string
+          dealer_id: string
+          id: string
+          name: string
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          dealer_id: string
+          id?: string
+          name: string
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          dealer_id?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_backgrounds_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dealer_invites: {
         Row: {
           claimed_at: string | null

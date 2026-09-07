@@ -12,12 +12,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { logEvent } from '@/lib/events';
 import { getSupabase } from '@/lib/supabase';
 
+export interface DealerBackground {
+  id: string;
+  name: string;
+}
+
 export interface DealerContext {
   dealerId: string;
   displayName: string;
   studioMonthlyLimit: number;
   studioUsedThisMonth: number;
   hasBrandedBackground: boolean;
+  /** Studijske pozadine salona - izbor u Pripremi (zadana = prva). */
+  backgrounds: DealerBackground[];
   /** Lokalni file s grafikom reklamne tablice salona (null = obican blur). */
   plateOverlayUri: string | null;
 }
@@ -77,9 +84,16 @@ export async function refreshDealerContext(): Promise<DealerContext | null> {
       }
     }
 
+    const { data: backgroundRows } = await supabase
+      .from('dealer_backgrounds')
+      .select('id, name')
+      .eq('dealer_id', row.dealer_id)
+      .order('sort_order');
+
     const ctx: DealerContext = {
       dealerId: row.dealer_id,
       displayName: row.display_name,
+      backgrounds: (backgroundRows ?? []).map((b) => ({ id: b.id, name: b.name })),
       studioMonthlyLimit: row.studio_monthly_limit ?? 100,
       studioUsedThisMonth: Number(row.studio_used_this_month ?? 0),
       hasBrandedBackground: !!row.studio_background_path,

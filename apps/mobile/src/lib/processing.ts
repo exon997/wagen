@@ -86,6 +86,7 @@ async function studioCloud(
   kind: 'exterior' | 'interior',
   shotKey: string,
   sessionId: string,
+  backgroundId?: string,
 ): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -96,7 +97,7 @@ async function studioCloud(
     });
     // sessionId nosi dealer kontekst (branding + fair-use) - server je istina
     const invocation = supabase.functions.invoke('studio-photo', {
-      body: { image, kind, sessionId },
+      body: { image, kind, sessionId, ...(backgroundId ? { backgroundId } : {}) },
     });
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('isteklo vrijeme (90 s)')), STUDIO_CLOUD_TIMEOUT_MS),
@@ -172,7 +173,7 @@ async function processOne(
           ? ('exterior' as const)
           : null;
     if (cloudKind) {
-      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey, sessionId);
+      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey, sessionId, look.backgroundId);
       if (cloudUri) return cloudUri;
       // pad oblaka: eksterijer nastavlja na nativni pipeline ispod
     }
