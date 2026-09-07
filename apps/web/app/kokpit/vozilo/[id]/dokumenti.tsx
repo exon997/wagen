@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PDFFont, PDFPage } from 'pdf-lib';
+import type { PDFFont, PDFPage, RGB } from 'pdf-lib';
 
 /**
  * Izlog (18.1) i Ekspoze (19.3) - generiranje u pregledniku (pdf-lib),
@@ -65,7 +65,7 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
 
 function drawPricePill(
   page: PDFPage,
-  rgb: (r: number, g: number, b: number) => ReturnType<typeof import('pdf-lib').rgb>,
+  rgb: (r: number, g: number, b: number) => RGB,
   font: PDFFont,
   priceLabel: string,
   x: number,
