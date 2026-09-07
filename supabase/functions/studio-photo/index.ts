@@ -28,23 +28,32 @@ const PROMPT_EXTERIOR =
   'proportions. Photorealistic.';
 
 // Dealer branding (Faza A, sekcija 9): pozadina salona je referentni
-// ambijent (IMAGE 2). Terenska lekcija 2026-08-26: prompt MORA biti
-// formuliran kao UREDI FOTKU 1 (zamjena pozadine), ne "smjesti auto u
-// prostor" - inace model komponira scenu i prenosi druge aute/objekte s
-// parkiralista, mijenja mjerilo i izmislja rekvizite.
+// BACKDROP (IMAGE 2). Terenske lekcije: (2026-08-26) prompt mora biti
+// UREDI FOTKU 1, ne "smjesti auto u prostor"; (2026-09-07) backdrop se
+// tretira kao RAVNI printani zid i ZABRANJUJE se izmisljanje stropova/
+// rasvjete - inace svaka fotka sesije dobije drugaciju interpretaciju.
+// Konzistentnost sesije: prva uspjesna studio fotka postaje referenca
+// (IMAGE 3) za sve sljedece fotke iste sesije.
 const PROMPT_EXTERIOR_BRANDED =
-  'Edit the FIRST image (a car photo). Replace its ENTIRE background and the ground with ' +
-  'the studio environment shown in the SECOND image: same walls, wall logo, ceiling ' +
-  'lighting and floor material. This is a background replacement, NOT a scene composition: ' +
+  'Edit the FIRST image (a car photo). The SECOND image is the dealership branded ' +
+  'studio BACKDROP - a flat printed wall design. Replace the entire background of the ' +
+  'first photo so the car stands in a clean studio in front of EXACTLY this backdrop: ' +
+  'reproduce its gradient, colors and logos faithfully (logos readable and undistorted). ' +
+  'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
+  'no windows, no props - only the backdrop wall and a seamless dark reflective studio ' +
+  'floor that blends into it. This is a background replacement, NOT a scene composition: ' +
   'the main vehicle of the first image must remain in EXACTLY the same position, size, crop ' +
   'and camera angle - pixel-faithful body panels, lights, grille, wheels, tires, window ' +
   'tint, emblems and license plate (including any blur or graphic applied to the plate); ' +
   'never redraw them. CRITICAL: the output must contain ONLY that one vehicle - remove ' +
   'every other vehicle, person and object from the original photo (parked cars, buildings, ' +
-  'bins, equipment). Adapt/crop the studio to fit the first image framing; keep the wall ' +
-  'logo readable and undistorted where the car does not cover it. Ground the car with a ' +
-  'natural shadow and subtle floor reflection consistent with the studio lighting. ' +
+  'bins, equipment). Ground the car with a natural shadow and subtle floor reflection. ' +
   'Photorealistic, high-end dealership listing quality.';
+
+const PROMPT_SESSION_REF =
+  ' The THIRD image shows another photo of this SAME car already placed in this studio - ' +
+  'match that environment EXACTLY (same backdrop rendering, same lighting, same floor tone ' +
+  'and reflections) so that all photos of this car look shot in the same place at the same time.';
 
 const PROMPT_INTERIOR =
   'Photo edit for a used-car marketplace listing, interior shot. Keep the ENTIRE interior ' +
@@ -87,6 +96,8 @@ Deno.serve(async (req) => {
 
   // Dealer kontekst preko sesije (server je istina, klijent ne salje dealerId)
   let brandedBackground: string | null = null;
+  let sessionRef: string | null = null;
+  let sessionRefPath: string | null = null;
   if (body?.sessionId) {
     const { data: session } = await service
       .from('photo_sessions')
@@ -129,17 +140,25 @@ Deno.serve(async (req) => {
         }
         // Brandirana pozadina (samo eksterijer)
         if (kind === 'exterior' && dealer.studio_background_path) {
-          const { data: file } = await service.storage
-            .from('dealer-assets')
-            .download(dealer.studio_background_path);
-          if (file) {
-            const buf = new Uint8Array(await file.arrayBuffer());
+          const toBase64 = (buf: Uint8Array) => {
             let binary = '';
             const chunk = 8192;
             for (let i = 0; i < buf.length; i += chunk) {
               binary += String.fromCharCode(...buf.subarray(i, i + chunk));
             }
-            brandedBackground = btoa(binary);
+            return btoa(binary);
+          };
+          const { data: file } = await service.storage
+            .from('dealer-assets')
+            .download(dealer.studio_background_path);
+          if (file) brandedBackground = toBase64(new Uint8Array(await file.arrayBuffer()));
+          // Referenca sesije: prva studio fotka sidri sve sljedece (2026-09-07)
+          if (brandedBackground) {
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref.png`;
+            const { data: ref } = await service.storage
+              .from('session-photos')
+              .download(sessionRefPath);
+            if (ref) sessionRef = toBase64(new Uint8Array(await ref.arrayBuffer()));
           }
         }
       }
@@ -160,9 +179,12 @@ Deno.serve(async (req) => {
               ...(brandedBackground
                 ? [{ inline_data: { mime_type: 'image/png', data: brandedBackground } }]
                 : []),
+              ...(brandedBackground && sessionRef
+                ? [{ inline_data: { mime_type: 'image/png', data: sessionRef } }]
+                : []),
               {
                 text: brandedBackground
-                  ? PROMPT_EXTERIOR_BRANDED
+                  ? PROMPT_EXTERIOR_BRANDED + (sessionRef ? PROMPT_SESSION_REF : '')
                   : kind === 'interior'
                     ? PROMPT_INTERIOR
                     : PROMPT_EXTERIOR,
@@ -190,6 +212,15 @@ Deno.serve(async (req) => {
     ?.data;
   if (!out) {
     return Response.json({ error: 'AI nije vratio sliku' }, { status: 502 });
+  }
+
+  // Prva uspjesna studio fotka sesije postaje referenca za sljedece
+  if (brandedBackground && !sessionRef && sessionRefPath) {
+    const bytes = Uint8Array.from(atob(out), (c) => c.charCodeAt(0));
+    await service.storage
+      .from('session-photos')
+      .upload(sessionRefPath, bytes, { contentType: 'image/png', upsert: true })
+      .catch(() => null);
   }
 
   return Response.json({
