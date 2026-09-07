@@ -42,9 +42,11 @@ const PROMPT_EXTERIOR_BRANDED =
   'Do NOT invent any other environment elements: no ceilings, no visible light fixtures, ' +
   'no windows, no props. The ground the car stands on IS the lower portion of the SECOND ' +
   'image: continue its exact colors and gradient onto the floor (do NOT darken, recolor or ' +
-  'replace it), rendered as a lightly polished surface with only a FAINT, subtle ' +
-  'reflection of the car that fades out quickly below the tires - NOT a mirror image, ' +
-  'barely visible gloss. The final background from top to bottom must look like the ' +
+  'replace it). The floor is a DIRECT CONTINUATION of the SECOND image bottom area - ' +
+  'same pattern, same colors, same lines if any; NEVER substitute your own generic ' +
+  'showroom floor. On that unchanged floor add only a FAINT, subtle reflection of the ' +
+  'car that fades out quickly below the tires - NOT a mirror image, barely visible ' +
+  'gloss. The final background from top to bottom must look like the ' +
   'SECOND image. The car must sit firmly grounded with a natural contact shadow - never ' +
   'floating. COMPOSITION RULES (fix any user framing mistakes by repositioning and ' +
   'rescaling the car IN THE FRAME): the car is the DOMINANT subject and must FILL the ' +
@@ -67,10 +69,11 @@ const PROMPT_EXTERIOR_BRANDED =
 // sve tri Mini fotke) - AI zamjenjuje registraciju cistom plocicom s
 // natpisom salona.
 const promptPlates = (dealerName: string) =>
-  ` License plate rule: if the plate already carries a branded graphic overlay, keep it ` +
-  `pixel-faithful. If it still shows a real registration, replace the plate content with a ` +
-  `clean black plate with the dealership wordmark "${dealerName}" in white bold italic ` +
-  `letters, keeping the plate's exact position, size and perspective.`;
+  ` License plate rule: replace the ENTIRE visible face of the license plate - including ` +
+  `the blue EU country band with stars on its left edge - with a clean black plate ` +
+  `carrying the dealership wordmark "${dealerName}" in white bold italic letters. Keep ` +
+  `the plate's exact position, size and perspective; nothing of the original plate ` +
+  `(letters, numbers, blue band) may remain visible.`;
 
 const PROMPT_SESSION_REF =
   ' The THIRD image shows another photo of this SAME car already placed in this studio - ' +
@@ -166,6 +169,8 @@ Deno.serve(async (req) => {
     kind?: string;
     sessionId?: string;
     backgroundId?: string;
+    /** false = korisnik zeli prave tablice; default true (zamjena). */
+    hidePlates?: boolean;
   } | null;
   const image = body?.image;
   const kind = body?.kind === 'interior' ? 'interior' : 'exterior';
@@ -256,7 +261,7 @@ Deno.serve(async (req) => {
           // Referenca sesije PO POZADINI: prva studio fotka sidri sljedece;
           // verzija u imenu ponistava stara sidra pri promjeni prompta.
           if (brandedBackground) {
-            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v5-${bgKey}.png`;
+            sessionRefPath = `${session.user_id}/${session.id}/_studio-ref-v6-${bgKey}.png`;
             const { data: ref } = await service.storage
               .from('session-photos')
               .download(sessionRefPath);
@@ -270,7 +275,7 @@ Deno.serve(async (req) => {
   const started = Date.now();
   const basePrompt = brandedBackground
     ? PROMPT_EXTERIOR_BRANDED +
-      (dealerDisplayName ? promptPlates(dealerDisplayName) : '') +
+      (dealerDisplayName && body?.hidePlates !== false ? promptPlates(dealerDisplayName) : '') +
       (sessionRef ? PROMPT_SESSION_REF : '')
     : kind === 'interior'
       ? PROMPT_INTERIOR

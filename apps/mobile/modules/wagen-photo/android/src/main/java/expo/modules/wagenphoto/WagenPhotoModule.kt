@@ -147,9 +147,12 @@ class WagenPhotoModule : Module() {
           val w = (rect["width"] ?: 0.0).toFloat()
           val h = (rect["height"] ?: 0.0).toFloat()
           if (w <= 4f || h <= 4f) continue
-          // Blaga margina da grafika sigurno pokrije rub originalne tablice
-          val pad = h * 0.12f
-          val dst = android.graphics.RectF(left - pad, top - pad, left + w + pad, top + h + pad)
+          // OCR box pokriva tekst registracije, ne cijelu plocicu: prosiri
+          // ULIJEVO za plavu EU traku (HR + zvjezdice) i vertikalno za rub
+          val padLeft = w * 0.22f
+          val padRight = w * 0.06f
+          val padV = h * 0.28f
+          val dst = android.graphics.RectF(left - padLeft, top - padV, left + w + padRight, top + h + padV)
           canvas.drawBitmap(overlay, null, dst, paint)
         }
         val outFile = File.createTempFile("wagen-plates-", ".jpg", context.cacheDir)

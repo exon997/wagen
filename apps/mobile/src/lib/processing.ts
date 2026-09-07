@@ -87,6 +87,7 @@ async function studioCloud(
   shotKey: string,
   sessionId: string,
   backgroundId?: string,
+  hidePlates?: boolean,
 ): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -97,7 +98,13 @@ async function studioCloud(
     });
     // sessionId nosi dealer kontekst (branding + fair-use) - server je istina
     const invocation = supabase.functions.invoke('studio-photo', {
-      body: { image, kind, sessionId, ...(backgroundId ? { backgroundId } : {}) },
+      body: {
+        image,
+        kind,
+        sessionId,
+        hidePlates: hidePlates !== false,
+        ...(backgroundId ? { backgroundId } : {}),
+      },
     });
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('isteklo vrijeme (90 s)')), STUDIO_CLOUD_TIMEOUT_MS),
@@ -144,10 +151,16 @@ async function processOne(
 
   const shotKey = shotKeyFromUri(photo.uri) ?? 'nepoznat';
 
+  // Studio + salon: tablicu rjesava AI pravilo u oblaku (perspektiva,
+  // pokriva i plavu EU traku - terenski 2026-09-07 bolji od lokalnog
+  // overlaya). Lokalni overlay/blur ostaje za Diskretnu/Original.
+  const plateHandledByCloud =
+    look.background === 'studio' && !!dealer && photo.angleCategory === 'exterior';
+
   // I4: sakrij registarske oznake (radi na svim uredjajima). Salon s
   // grafikom tablice dobiva deterministicki overlay umjesto blura (9).
   let workingUri = photo.uri;
-  if (look.hidePlates) {
+  if (look.hidePlates && !plateHandledByCloud) {
     const isExterior = photo.angleCategory === 'exterior';
     try {
       const plates = await findPlateRegions(photo.uri);
@@ -173,7 +186,14 @@ async function processOne(
           ? ('exterior' as const)
           : null;
     if (cloudKind) {
-      const cloudUri = await studioCloud(workingUri, cloudKind, shotKey, sessionId, look.backgroundId);
+      const cloudUri = await studioCloud(
+        workingUri,
+        cloudKind,
+        shotKey,
+        sessionId,
+        look.backgroundId,
+        look.hidePlates,
+      );
       if (cloudUri) return cloudUri;
       // pad oblaka: eksterijer nastavlja na nativni pipeline ispod
     }
