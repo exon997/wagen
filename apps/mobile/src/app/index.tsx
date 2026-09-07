@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@wagen/domain';
-import { createSession } from '@/lib/sessions';
+import { createSession, listSessions, type LocalSession } from '@/lib/sessions';
 import { clearLastCrash, getLastCrash } from '@/lib/crash-log';
 import { getCachedDealerContext, refreshDealerContext, type DealerContext } from '@/lib/dealer';
 import { syncSession } from '@/lib/sync';
@@ -16,6 +16,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [crash, setCrash] = useState<string | null>(null);
   const [dealer, setDealer] = useState<DealerContext | null>(null);
+  const [recent, setRecent] = useState<LocalSession[]>([]);
 
   useEffect(() => {
     void getLastCrash().then((c) => setCrash(c ? `${c.at}${c.fatal ? ' (fatal)' : ''}\n${c.error}` : null));
@@ -25,8 +26,18 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void getCachedDealerContext().then(setDealer);
+      // Nastavak zapocetih vozila (spec vlasnika 2026-09-07): prekinuto
+      // fotografiranje se nastavlja odavde, ne ispocetka
+      void listSessions().then((all) => setRecent(all.slice(0, 5)));
     }, []),
   );
+
+  const sessionLine = (s: LocalSession): string => {
+    const vehicle = s.vehicleInfo
+      ? `${s.vehicleInfo.make} ${s.vehicleInfo.model}`
+      : (s.vin ?? 'Bez VIN-a');
+    return `${vehicle} · ${s.photos.length} fotki`;
+  };
 
   const start = async () => {
     const session = await createSession('photo', dealer?.dealerId ?? null);
@@ -72,6 +83,35 @@ export default function HomeScreen() {
         </Text>
       </Pressable>
 
+      {recent.length > 0 && (
+        <View style={styles.recentBox}>
+          <Text style={styles.recentTitle}>Nastavi započeto</Text>
+          {recent.map((s) => (
+            <Pressable
+              key={s.id}
+              style={styles.recentRow}
+              onPress={() => router.push({ pathname: '/sesija/[id]', params: { id: s.id } })}
+            >
+              {s.photos[0] ? (
+                <Image
+                  source={{ uri: s.photos[0].processedUri ?? s.photos[0].uri }}
+                  style={styles.recentThumb}
+                />
+              ) : (
+                <View style={[styles.recentThumb, styles.recentThumbEmpty]} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recentLine}>{sessionLine(s)}</Text>
+                <Text style={styles.recentDate}>
+                  {new Date(s.updatedAt).toLocaleDateString('hr-HR')}
+                </Text>
+              </View>
+              <Text style={styles.recentArrow}>→</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <Pressable style={styles.salonLink} onPress={() => router.push('/salon')}>
         <Text style={styles.salonLinkText}>
           {dealer ? `Salon: ${dealer.displayName} →` : 'Imate salon? Prijava za trgovce →'}
@@ -102,6 +142,27 @@ const styles = StyleSheet.create({
   crashTitle: { color: '#FF5555', fontWeight: '700', marginBottom: 6 },
   crashText: { color: colors.white, fontSize: 11, fontFamily: 'monospace' },
   crashDismiss: { color: colors.cyan, marginTop: 10 },
+  recentBox: { marginTop: 22 },
+  recentTitle: {
+    color: colors.gray,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomWidth: 1,
+  },
+  recentThumb: { width: 56, height: 42, borderRadius: 6, backgroundColor: '#222' },
+  recentThumbEmpty: { borderWidth: 1, borderColor: colors.gray },
+  recentLine: { color: colors.white, fontSize: 15, fontWeight: '600' },
+  recentDate: { color: colors.gray, fontSize: 12, marginTop: 2 },
+  recentArrow: { color: colors.cyan, fontSize: 20 },
   salonLink: { marginTop: 20, alignSelf: 'flex-start', paddingVertical: 8 },
   salonLinkText: { color: colors.gray, fontSize: 14 },
 });

@@ -105,7 +105,21 @@ export default function VinScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ title: 'Skeniraj VIN' }} />
-        <CameraView ref={setCameraRef} style={styles.camera} facing="back" />
+        <View style={styles.cameraWrap}>
+          <CameraView ref={setCameraRef} style={StyleSheet.absoluteFill} facing="back" />
+          {/* Pravokutnik u koji se smjesta VIN (spec vlasnika 2026-09-07) */}
+          <View pointerEvents="none" style={styles.vinFrameArea}>
+            <View style={styles.vinFrame} />
+            <Text style={styles.vinFrameLabel}>Smjesti VIN u okvir</Text>
+          </View>
+          {/* Jasan feedback dok OCR radi - korisnik ne ceka nad smrznutom slikom */}
+          {busy && (
+            <View style={styles.busyOverlay}>
+              <Text style={styles.busyText}>Prepoznajem VIN…</Text>
+              <Text style={styles.busySub}>par sekundi</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.hint}>
           Najlakse: skeniraj VIN iz prometne dozvole. Na autu: naljepnica na stoku vrata; neki auti
           i vjetrobran dolje lijevo.
@@ -182,7 +196,38 @@ export default function VinScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black, padding: 24 },
-  camera: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  cameraWrap: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  vinFrameArea: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vinFrame: {
+    width: '88%',
+    height: 64,
+    borderWidth: 3,
+    borderColor: colors.cyan,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  vinFrameLabel: {
+    marginTop: 10,
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  busyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  busyText: { color: colors.cyan, fontSize: 24, fontWeight: '800' },
+  busySub: { color: colors.gray, fontSize: 14, marginTop: 6 },
   hint: { color: colors.gray, fontSize: 13, textAlign: 'center', marginVertical: 12 },
   muted: { color: colors.gray, fontSize: 14 },
   label: { color: colors.gray, marginTop: 24, marginBottom: 8 },
