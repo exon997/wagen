@@ -34,6 +34,8 @@ export interface MedijiProps {
     mileageKm: number | null;
     city: string | null;
     vehicleId: string;
+    /** Naknadno ugradjena oprema (Dodatno 4) - ide u AI caption facts. */
+    retrofitEquipment: string[];
   };
 }
 

@@ -79,6 +79,13 @@ export function VoziloDetalj({
   const [city, setCity] = useState(listing.location_city ?? '');
   const [vat, setVat] = useState(listing.vat_deductible);
   const [condition, setCondition] = useState((attrs['condition'] as string) ?? 'bez-stete');
+  // Naknadno ugradjena oprema (Dodatno 4): rucni unos, odvojeno od VIN opreme
+  const [retrofit, setRetrofit] = useState<string[]>(
+    Array.isArray(attrs['retrofit_equipment'])
+      ? (attrs['retrofit_equipment'] as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [],
+  );
+  const [retrofitEntry, setRetrofitEntry] = useState('');
   const [description, setDescription] = useState(listing.description ?? '');
   const [status, setStatus] = useState(listing.status);
   const [photos, setPhotos] = useState(initialPhotos);
@@ -100,7 +107,7 @@ export function VoziloDetalj({
           vat_deductible: vat,
           description: description || null,
           status: status as 'draft' | 'active' | 'sold',
-          attributes: { ...attrs, condition },
+          attributes: { ...attrs, condition, retrofit_equipment: retrofit },
           ...(status === 'sold' ? { sold_at: new Date().toISOString() } : {}),
         })
         .eq('id', listing.id);
@@ -326,6 +333,54 @@ export function VoziloDetalj({
         </section>
       )}
 
+      <section style={{ marginTop: 16 }}>
+        <strong>Naknadno ugrađena oprema ({retrofit.length})</strong>
+        <p style={{ fontSize: 13, color: '#666', margin: '4px 0 8px' }}>
+          Oprema ugrađena nakon kupnje (kuka, glazba, felge…) — prikazuje se odvojeno od tvorničke.
+        </p>
+        {retrofit.length > 0 && (
+          <ul style={{ margin: '0 0 8px', paddingLeft: 20, lineHeight: 1.8 }}>
+            {retrofit.map((item, i) => (
+              <li key={`${item}-${i}`}>
+                {item}{' '}
+                <button
+                  onClick={() => setRetrofit(retrofit.filter((_, j) => j !== i))}
+                  style={tinyBtn}
+                  title="Ukloni"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={retrofitEntry}
+            onChange={(e) => setRetrofitEntry(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && retrofitEntry.trim()) {
+                setRetrofit([...retrofit, retrofitEntry.trim()]);
+                setRetrofitEntry('');
+              }
+            }}
+            placeholder="npr. Kuka za prikolicu"
+            style={{ ...input, flex: '0 1 320px' }}
+          />
+          <button
+            onClick={() => {
+              if (retrofitEntry.trim()) {
+                setRetrofit([...retrofit, retrofitEntry.trim()]);
+                setRetrofitEntry('');
+              }
+            }}
+            style={ghostBtn}
+          >
+            + Dodaj
+          </button>
+        </div>
+      </section>
+
       <div style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'center' }}>
         <button onClick={() => void save()} disabled={busy !== null} style={primaryBtn}>
           {busy === 'save' ? 'Spremam…' : 'Spremi'}
@@ -396,7 +451,7 @@ export function VoziloDetalj({
           { label: 'Povrat PDV-a', value: vat ? 'moguc' : 'ne' },
           { label: 'Grad', value: city || '—' },
         ]}
-        equipment={equipment}
+        equipment={[...equipment, ...retrofit.map((r) => `${r} (naknadno ugrađeno)`)]}
         description={description || null}
         dealerName={dealerName}
         dealerPhone={dealerPhone}
@@ -419,6 +474,7 @@ export function VoziloDetalj({
           mileageKm: mileage ? parseInt(mileage, 10) : null,
           city: city || null,
           vehicleId: vehicle.id,
+          retrofitEquipment: retrofit,
         }}
       />
     </main>

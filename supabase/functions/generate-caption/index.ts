@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
     dealerName?: string | null;
     pageUrl?: string | null;
     vehicleId?: string | null;
+    retrofitEquipment?: string[] | null;
   } | null;
   if (!body?.make || !body.model) {
     return Response.json({ error: 'Nedostaju podaci o vozilu' }, { status: 422 });
@@ -59,6 +60,9 @@ Deno.serve(async (req) => {
     body.city ? `Lokacija: ${body.city}` : null,
     body.dealerName ? `Prodavac: ${body.dealerName}` : null,
     equipment.length > 0 ? `Istaknuta oprema: ${equipment.join(', ')}` : null,
+    Array.isArray(body.retrofitEquipment) && body.retrofitEquipment.length > 0
+      ? `Naknadno ugradjena oprema: ${body.retrofitEquipment.filter((x) => typeof x === 'string').slice(0, 6).join(', ')}`
+      : null,
     body.pageUrl ? `Link: ${body.pageUrl}` : null,
   ]
     .filter(Boolean)

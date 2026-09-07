@@ -79,6 +79,10 @@ export async function GET(
       ).filter((u): u is string => !!u);
 
       const attrs = (l.attributes ?? {}) as Record<string, unknown>;
+      // Naknadno ugradjena oprema (Dodatno 4) - odvojena od tvornicke
+      const retrofit = Array.isArray(attrs['retrofit_equipment'])
+        ? (attrs['retrofit_equipment'] as unknown[]).filter((x): x is string => typeof x === 'string')
+        : [];
       const v = l.vehicles;
       return [
         '<vozilo>',
@@ -96,6 +100,9 @@ export async function GET(
         tag('grad', l.location_city),
         tag('opis', l.description),
         tag('azurirano', l.updated_at),
+        '<naknadno_ugradjena_oprema>',
+        ...retrofit.map((r) => tag('stavka', r)),
+        '</naknadno_ugradjena_oprema>',
         '<fotografije>',
         ...urls.map((u) => tag('url', u)),
         '</fotografije>',
