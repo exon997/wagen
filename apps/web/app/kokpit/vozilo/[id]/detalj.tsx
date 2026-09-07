@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Dokumenti } from './dokumenti';
 import { Mediji } from './mediji';
 
 interface Vehicle {
@@ -54,6 +55,8 @@ export function VoziloDetalj({
   equipment,
   photos: initialPhotos,
   dealerName,
+  dealerPhone,
+  dealerCity,
   pageUrl,
 }: {
   sessionId: string;
@@ -64,6 +67,8 @@ export function VoziloDetalj({
   equipment: string[];
   photos: Photo[];
   dealerName: string;
+  dealerPhone: string | null;
+  dealerCity: string | null;
   pageUrl: string | null;
 }) {
   const router = useRouter();
@@ -370,6 +375,34 @@ export function VoziloDetalj({
           ))}
         </div>
       </section>
+
+      <Dokumenti
+        photos={photos}
+        title={`${year || vehicle.model_year ? `${year || vehicle.model_year} ` : ''}${vehicle.make} ${vehicle.model}`}
+        subtitle={[
+          vehicle.engine_label,
+          condition === 'bez-stete'
+            ? 'Bez stete'
+            : condition === 'popravljena-steta'
+              ? 'Popravljena steta'
+              : 'Osteceno',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        priceLabel={formatPrice(price ? parseInt(price, 10) : listing.price_current)}
+        facts={[
+          { label: 'Godina', value: year || String(vehicle.model_year ?? '—') },
+          { label: 'Kilometraza', value: mileage ? `${parseInt(mileage, 10).toLocaleString('de-DE')} km` : '—' },
+          { label: 'Povrat PDV-a', value: vat ? 'moguc' : 'ne' },
+          { label: 'Grad', value: city || '—' },
+        ]}
+        equipment={equipment}
+        description={description || null}
+        dealerName={dealerName}
+        dealerPhone={dealerPhone}
+        dealerCity={dealerCity}
+        pageUrl={pageUrl}
+      />
 
       <Mediji
         photos={photos}

@@ -89,7 +89,7 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
     session.dealer_id
       ? supabase
           .from('dealer_pages')
-          .select('slug, is_published')
+          .select('slug, is_published, phone, city')
           .eq('dealer_id', session.dealer_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -111,6 +111,8 @@ export default async function VoziloPage({ params }: { params: Promise<{ id: str
       equipment={equipmentNames}
       photos={photos}
       dealerName={myDealer?.display_name ?? 'wagen salon'}
+      dealerPhone={dealerPage?.phone ?? null}
+      dealerCity={dealerPage?.city ?? null}
       pageUrl={dealerPage?.is_published ? `https://wagen.hr/${dealerPage.slug}` : null}
     />
   );
