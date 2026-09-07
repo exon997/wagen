@@ -193,6 +193,31 @@ Redoslijed lansiranja se obrće u odnosu na klasični model: **aplikacija živi 
 3. **Watermark kao društveni dokaz:** kad prvih ~50 oglasa nosi wagen fotke, grupa sama postaje demo — "čime je ovo slikano?" je organski marketing.
 4. Tek nakon seedinga: javna ponuda aplikacije pri predaji oglasa u grupi, deep link u foto mod (4.2).
 
+### 4.7 Video PLG — automatski 9:16 video i dossier za svaki oglas (ODLUČENO 2026-09-07)
+
+Puni spec: [`docs/video-plg-sprint.md`](video-plg-sprint.md). Svaki objavljeni oglas
+privatnog prodavača automatski dobiva 9:16 video (TikTok/Reels/Shorts) i PDF
+dossier; oba nose wagen brand i mjerljive linkove natrag u aplikaciju —
+izravna poluga za glavni KPI (broj preuzimanja, 4.5).
+
+**Ključne odluke (ne otvarati ponovno):**
+- Render videa isključivo na serveru (Remotion na wagen-worker-1); nikad on-device.
+- Template = konfiguracija + verzija na serveru; novi template bez update-a aplikacije.
+- Video bez glazbe; bez QR-a na videu (end card: kratki link `wagen.hr/v/{kod}`); safe zone za TikTok UI.
+- Sve se mjeri po videu i templateu: klik → instalacija → otvaranje oglasa (`short_links`, `link_events`).
+- Pipeline je agnostičan (radi i za dealere), nudge/UI u v1 samo za privatne.
+
+**Usklađenje s postojećim projektom (analiza 2026-09-07):**
+- `seller_type` iz speca = naš `user_id is not null` (15.5 XOR vlasništvo).
+- **Preduvjet svega: sync OBRAĐENIH fotki u Storage** — dosad su u oblaku samo
+  originali, a AI studio rezultati žive lokalno na uređaju. (Popravlja i javnu
+  stranicu trgovca i izvozni feed koji su prikazivali originale.)
+- Hosting workera: **RIJEŠENO — Hetzner** (ADR `docs/odluke/2026-09-07-hetzner-worker.md`).
+- Fazirano: **V1 uz Blok C** (worker, templatei, `/v/{code}`, dealer template —
+  Kokpit video prelazi s browser-rendera na server), **V2 uz Blok D** (trigger na
+  objavu privatnog oglasa, VideoScreen, push, deferred deep link, story_text,
+  dossier `private` varijanta, admin tablica performansi po templateu).
+
 ---
 
 ## 5. Registracija i autentikacija
@@ -914,6 +939,9 @@ Obrazac distribucije kroz aktere (dovršava postojeću obitelj): watermark čini
 - [ ] Kategorije vozila — potvrda prijedloga iz 16 (Motori potkategorije; Kombiji ≤3,5 t / Kamioni >3,5 t)
 - [ ] Limit broja spremljenih pretraga na naslovnici (prijedlog: 6)
 - [ ] Custom domene za stranice trgovaca (v1 je wagen.hr/ime-trgovca; custom samo ako jeftino)
+- [ ] Video PLG: Branch vs AppsFlyer za deferred deep linkove (provjeriti Branch free tier na 100k instalacija) — prije V2 (4.7)
+- [ ] Video PLG: re-render videa pri promjeni cijene — automatski (trošak) ili na zahtjev
+- [ ] Video PLG: sl/en lokalizacija templatea (config spreman, prijevodi kasnije)
 - [ ] AI studio: izbor pružatelja dugoročno (Gemini 3.1 Flash je prvi; adapter princip) + limit troška po korisniku/danu protiv zloupotrebe
 
 ---
