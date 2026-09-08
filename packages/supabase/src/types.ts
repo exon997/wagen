@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       app_events: {
@@ -584,6 +559,44 @@ export type Database = {
           },
         ]
       }
+      link_events: {
+        Row: {
+          code: string
+          created_at: string
+          event: string
+          id: number
+          ip_hash: string | null
+          platform: string | null
+          ua_hash: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          event: string
+          id?: never
+          ip_hash?: string | null
+          platform?: string | null
+          ua_hash?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          event?: string
+          id?: never
+          ip_hash?: string | null
+          platform?: string | null
+          ua_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_events_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "short_links"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       listing_enrichment: {
         Row: {
           created_at: string
@@ -657,6 +670,56 @@ export type Database = {
           },
         ]
       }
+      listing_videos: {
+        Row: {
+          created_at: string
+          duration_sec: number | null
+          id: string
+          listing_id: string
+          render_ms: number | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          template_slug: string
+          template_version: number
+          thumb_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_sec?: number | null
+          id?: string
+          listing_id: string
+          render_ms?: number | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+          template_slug: string
+          template_version: number
+          thumb_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_sec?: number | null
+          id?: string
+          listing_id?: string
+          render_ms?: number | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          template_slug?: string
+          template_version?: number
+          thumb_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_videos_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           attributes: Json
@@ -675,6 +738,7 @@ export type Database = {
           sold_at: string | null
           sold_price: number | null
           status: Database["public"]["Enums"]["listing_status"]
+          story_text: string | null
           updated_at: string
           user_id: string | null
           vat_deductible: boolean
@@ -697,6 +761,7 @@ export type Database = {
           sold_at?: string | null
           sold_price?: number | null
           status?: Database["public"]["Enums"]["listing_status"]
+          story_text?: string | null
           updated_at?: string
           user_id?: string | null
           vat_deductible?: boolean
@@ -719,6 +784,7 @@ export type Database = {
           sold_at?: string | null
           sold_price?: number | null
           status?: Database["public"]["Enums"]["listing_status"]
+          story_text?: string | null
           updated_at?: string
           user_id?: string | null
           vat_deductible?: boolean
@@ -1081,6 +1147,53 @@ export type Database = {
         }
         Relationships: []
       }
+      render_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          listing_id: string
+          locked_at: string | null
+          status: string
+          template_slug: string
+          template_version: number
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          listing_id: string
+          locked_at?: string | null
+          status?: string
+          template_slug: string
+          template_version: number
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          listing_id?: string
+          locked_at?: string | null
+          status?: string
+          template_slug?: string
+          template_version?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "render_jobs_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           body: string | null
@@ -1170,6 +1283,74 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "markets"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      share_events: {
+        Row: {
+          channel: string
+          created_at: string
+          id: number
+          video_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          id?: never
+          video_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: never
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "listing_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      short_links: {
+        Row: {
+          code: string
+          created_at: string
+          listing_id: string
+          source: string
+          video_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          listing_id: string
+          source?: string
+          video_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          listing_id?: string
+          source?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_links_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "short_links_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "listing_videos"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1308,6 +1489,36 @@ export type Database = {
         }
         Relationships: []
       }
+      video_templates: {
+        Row: {
+          active: boolean
+          config: Json
+          created_at: string
+          id: string
+          is_default: boolean
+          slug: string
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          config: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          slug: string
+          version: number
+        }
+        Update: {
+          active?: boolean
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          slug?: string
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1322,9 +1533,32 @@ export type Database = {
           display_name: string
         }[]
       }
+      claim_render_job: {
+        Args: never
+        Returns: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          listing_id: string
+          locked_at: string | null
+          status: string
+          template_slug: string
+          template_version: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "render_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      gen_short_code: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_dealer_member: { Args: { d: string }; Returns: boolean }
       is_dealer_owner: { Args: { d: string }; Returns: boolean }
+      is_my_listing: { Args: { p_listing_id: string }; Returns: boolean }
       my_dealer: {
         Args: never
         Returns: {
@@ -1513,9 +1747,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       attribute_type: ["text", "number", "boolean", "enum"],

@@ -4,22 +4,18 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 /**
- * AlphaOne sadrzajni paket (4.5, pre-launch) - sve se generira U
- * PREGLEDNIKU (Canvas + WebCodecs): nula infrastrukture, nula troska po
- * renderu, trgovac klikne i preuzme.
- * - 9:16 MP4 video (Ken Burns slideshow s brandingom i cijenom)
- * - carousel 4:5 JPG set za drustvene mreze (ZIP)
+ * AlphaOne sadrzajni paket (4.5, pre-launch):
+ * - 9:16 MP4 video: SERVER render (4.7 V1) - red u render_jobs, worker na
+ *   Hetzneru rendera Remotion template, Kokpit preuzme gotov MP4
+ * - carousel 4:5 JPG set u pregledniku (Canvas + JSZip)
  * - AI caption (edge fn generate-caption, facts-only)
  */
 
-const VIDEO_W = 1080;
-const VIDEO_H = 1920;
-const FPS = 30;
-const SECONDS_PER_PHOTO = 2.4;
-const MAX_VIDEO_PHOTOS = 8;
 const CYAN = '#1EDCE8';
 
 export interface MedijiProps {
+  /** listings.id - cilj render posla na serveru. */
+  listingId: string;
   photos: { url: string | null }[];
   title: string;
   priceLabel: string;
@@ -102,7 +98,15 @@ function drawBranding(
   ctx.fillText(wm, w - ctx.measureText(wm).width - 40, h - 44);
 }
 
-export function Mediji({ photos, title, priceLabel, dealerName, pageUrl, caption }: MedijiProps) {
+export function Mediji({
+  listingId,
+  photos,
+  title,
+  priceLabel,
+  dealerName,
+  pageUrl,
+  caption,
+}: MedijiProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
   const [captionText, setCaptionText] = useState('');
@@ -110,92 +114,75 @@ export function Mediji({ photos, title, priceLabel, dealerName, pageUrl, caption
 
   const urls = photos.map((p) => p.url).filter((u): u is string => !!u);
 
+  // 4.7 V1: server render - red u render_jobs, worker rendera, mi preuzmemo
   const makeVideo = async () => {
-    if (typeof window.VideoEncoder === 'undefined') {
-      setNote('Ovaj preglednik ne podrzava generiranje videa - koristi Chrome ili Edge.');
-      return;
-    }
     setBusy('video');
     setNote(null);
     try {
-      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
-      const canvas = document.createElement('canvas');
-      canvas.width = VIDEO_W;
-      canvas.height = VIDEO_H;
-      const ctx = canvas.getContext('2d')!;
-      const images = await Promise.all(urls.slice(0, MAX_VIDEO_PHOTOS).map(loadImage));
+      const supabase = createClient();
+      const { data: template, error: templateError } = await supabase
+        .from('video_templates')
+        .select('slug, version')
+        .eq('active', true)
+        .eq('is_default', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (templateError || !template) {
+        throw new Error(templateError?.message ?? 'nema aktivnog templatea');
+      }
 
-      const muxer = new Muxer({
-        target: new ArrayBufferTarget(),
-        video: { codec: 'avc', width: VIDEO_W, height: VIDEO_H },
-        fastStart: 'in-memory',
-      });
-      const encoder = new VideoEncoder({
-        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error: (e) => {
-          throw e;
-        },
-      });
-      encoder.configure({
-        codec: 'avc1.640028',
-        width: VIDEO_W,
-        height: VIDEO_H,
-        bitrate: 8_000_000,
-        framerate: FPS,
-      });
-
-      const framesPerPhoto = Math.round(SECONDS_PER_PHOTO * FPS);
-      let t = 0;
-      const pushFrame = async () => {
-        const frame = new VideoFrame(canvas, {
-          timestamp: Math.round((t * 1e6) / FPS),
-          duration: Math.round(1e6 / FPS),
-        });
-        encoder.encode(frame, { keyFrame: t % (FPS * 2) === 0 });
-        frame.close();
-        t += 1;
-        while (encoder.encodeQueueSize > 20) {
-          await new Promise((r) => setTimeout(r, 5));
-        }
+      // Cache: gotov video za ovaj template vec postoji? Preuzmi odmah.
+      const findReady = async () => {
+        const { data } = await supabase
+          .from('listing_videos')
+          .select('storage_path, status')
+          .eq('listing_id', listingId)
+          .eq('template_slug', template.slug)
+          .eq('template_version', template.version)
+          .maybeSingle();
+        return data;
       };
 
-      for (let i = 0; i < images.length; i++) {
-        setProgress(`fotka ${i + 1}/${images.length}`);
-        for (let f = 0; f < framesPerPhoto; f++) {
-          const zoom = 1 + (0.08 * f) / framesPerPhoto;
-          ctx.fillStyle = '#000';
-          ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
-          drawCover(ctx, images[i]!, VIDEO_W, VIDEO_H, zoom);
-          drawBranding(ctx, VIDEO_W, VIDEO_H, dealerName, title, priceLabel);
-          await pushFrame();
+      let video = await findReady();
+      if (!video || video.status !== 'ready') {
+        const { error: jobError } = await supabase.from('render_jobs').insert({
+          listing_id: listingId,
+          template_slug: template.slug,
+          template_version: template.version,
+        });
+        if (jobError) throw new Error(jobError.message);
+        setProgress('render na serveru…');
+        const deadline = Date.now() + 180_000;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 3000));
+          video = await findReady();
+          if (video?.status === 'ready') break;
+          const { data: job } = await supabase
+            .from('render_jobs')
+            .select('status, error')
+            .eq('listing_id', listingId)
+            .eq('template_slug', template.slug)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (job?.status === 'failed') throw new Error(job.error ?? 'render pao');
+        }
+        if (!video || video.status !== 'ready') {
+          throw new Error('isteklo cekanje (3 min) - probaj ponovno');
         }
       }
-      // outro 2 s
-      setProgress('zavrsna spica');
-      for (let f = 0; f < FPS * 2; f++) {
-        ctx.fillStyle = '#0b0b0b';
-        ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#fff';
-        ctx.font = '700 64px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(dealerName, VIDEO_W / 2, VIDEO_H / 2 - 60);
-        ctx.fillStyle = CYAN;
-        ctx.font = '600 44px system-ui, sans-serif';
-        ctx.fillText(pageUrl?.replace(/^https?:\/\//, '') ?? 'wagen.hr', VIDEO_W / 2, VIDEO_H / 2 + 40);
-        ctx.textAlign = 'left';
-        await pushFrame();
-      }
 
-      await encoder.flush();
-      muxer.finalize();
-      const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+      const { data: signed, error: signError } = await supabase.storage
+        .from('videos')
+        .createSignedUrl(video.storage_path, 3600, {
+          download: `${title.replace(/\s+/g, '-')}-video.mp4`,
+        });
+      if (signError || !signed) throw new Error(signError?.message ?? 'potpisivanje nije uspjelo');
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${title.replace(/\s+/g, '-')}-video.mp4`;
+      a.href = signed.signedUrl;
       a.click();
-      URL.revokeObjectURL(a.href);
-      setNote('Video preuzet ✓ (9:16, spreman za Reels/Stories/TikTok)');
+      setNote('Video preuzet ✓ (9:16, server render)');
     } catch (e) {
       setNote(`Video nije uspio: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

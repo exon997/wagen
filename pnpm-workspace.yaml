@@ -23,6 +23,12 @@ strictPeerDependencies: false
 # (@unrs/resolver-binding-win32-x64-msvc), pa postinstall skripta nije potrebna.
 allowBuilds:
   unrs-resolver: false
+  # render-worker: postinstall skida ffmpeg binarku za platformu - bez nje
+  # faststart korak ne radi. Provjereni paket, pinnan u apps/render-worker.
+  ffmpeg-static: true
+  # esbuild (kroz tsx/@remotion/bundler): nativnu binarku isporucuje
+  # optional ovisnost (@esbuild/<platforma>), postinstall je samo provjera.
+  esbuild: false
 
 minimumReleaseAgeExclude:
   - '@expo/image-utils@0.11.5'

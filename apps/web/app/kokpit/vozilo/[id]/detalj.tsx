@@ -460,6 +460,7 @@ export function VoziloDetalj({
       />
 
       <Mediji
+        listingId={listing.id}
         photos={photos}
         title={`${year || vehicle.model_year ? `${year || vehicle.model_year} ` : ''}${vehicle.make} ${vehicle.model}`}
         priceLabel={formatPrice(price ? parseInt(price, 10) : listing.price_current)}

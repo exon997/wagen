@@ -1,0 +1,33 @@
+{
+  "name": "@wagen/video-templates",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./entry": "./src/entry.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "studio": "remotion studio src/entry.ts"
+  },
+  "dependencies": {
+    "@remotion/fonts": "4.0.520",
+    "remotion": "4.0.520",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.520",
+    "@types/react": "^19.0.0",
+    "@wagen/config": "workspace:*",
+    "eslint": "^9.17.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "typescript": "~5.9.3"
+  }
+}
