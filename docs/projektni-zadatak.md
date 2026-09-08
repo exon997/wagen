@@ -278,9 +278,21 @@ izravna poluga za glavni KPI (broj preuzimanja, 4.5).
 - **SMS provider: Twilio (ODLUČENO)** — OTP se šalje kroz Twilio (nativna Supabase podrška, postojeći račun). Lokalni razvoj i CI koriste `test_otp` fiksne kodove — nijedan stvarni SMS se ne šalje izvan produkcije.
 - Magic link + app: potreban deep linking (iOS Universal Links, Android App Links) da klik na email link otvori app umjesto browsera — Supabase podržava, ali treba domain verification setup
 
+> **Zaboravljena lozinka (ODLUČENO 2026-09-08):** u aplikaciji NE POSTOJI
+> (nema lozinke — SMS OTP + biometrija; izgubljen pristup = novi SMS kod).
+> Web (Kokpit, kasnije web Garaža) ima standardni flow: zaboravljena
+> lozinka → email link → nova lozinka (Supabase ugrađeno, bez vlastitog koda).
+
 ### 5.3 Registracija trgovaca (B2B)
 - Zaseban, "teži" put: web forma → unos podataka tvrtke → odabir paketa → **ručna aktivacija** od strane wagen tima (concierge onboarding)
 - Nakon aktivacije: pristup dealer računu, koristan i u app i na webu
+
+### 5.4 Profil korisnika u aplikaciji (ODLUČENO 2026-09-08)
+
+- **Minimalni profil:** ime, verificirani telefon, opcionalni email. **Adresa se NE skuplja** — ne treba ni za što u v1 (Stripe sam traži podatke pri plaćanju); manje podataka = manji GDPR teret.
+- **Postavke — sekcije:** Moji oglasi · Obavijesti (toggle po tipu: spremljene pretrage, promjene cijena, upiti) · Plaćanja i računi · Sigurnost · Pravno (Uvjeti, Privatnost) · Podrška · Pozovi prijatelja.
+- **Sigurnost obavezno sadrži:** biometrija/PIN, odjava sa svih uređaja i **brisanje računa** (GDPR + obavezno pravilo App Storea/Playa).
+- **Pozovi prijatelja (referral):** u dizajnu odmah kao placeholder; gradi se tek kad KPI postane broj preuzimanja (4.5, faza promocije consumer aplikacije).
 
 ---
 
@@ -307,6 +319,12 @@ Snažan, autorski vizualni identitet — cilj je da posjeta wagen.hr bude doživ
 - Konzistentna, ponavljajuća serija po kategoriji vozila (npr. obiteljski SUV = kaos s koferima i djecom, suprug izbezumljeno promatra) — arhetip po kategoriji, ne nasumične slike.
 - Definirati dosljedan vizualni tretman (color grade, kadar, tretman lica/akcije) da se "wagen fotka" prepoznaje i bez loga.
 - Živi isključivo na marketing površinama, ne u produkt flowu.
+
+### 6.6 Tamna tema — NE u v1 (ODLUČENO 2026-09-08)
+
+- Trošak realan (svaki ekran × 2 na šest površina, dupli QA i dizajn), vrijednost za launch KPI nikakva — nitko ne skida oglasnik zbog tamne teme.
+- Design tokeni u kodu ostaju strukturirani tako da se tema kasnije doda bez prerade; v2 kandidat (argument: fotografije vozila na tamnom, večernje listanje).
+- Ako se ikad doda: prati SUSTAVNU postavku uređaja — **toggle u postavkama aplikacije ne treba ni tada**.
 
 ---
 
@@ -413,6 +431,7 @@ Tri jasno diferencirana paketa (Basic / Premium / Ultimate) — psihološki naje
   - `customer.subscription.updated` → sync promjene paketa (npr. Basic → Premium) s dashboard prikazom
 - **Stripe Tax:** razmotriti za automatski obračun PDV-a na temelju lokacije kupca, podržava "neto + PDV" prikaz cijena.
 - **Plaćanje privatnih korisnika (isticanje oglasa, 9.6):** jednokratno plaćanje (Stripe Checkout one-time payment), ne subscription — jednostavniji flow, ne treba trial/webhook logiku za otkazivanje.
+- **Mobilno plaćanje (ODLUČENO 2026-09-08): Stripe Checkout se iz aplikacije otvara u BROWSERU, ne in-app.** Izbjegava Apple/Google proviziju 15–30 % — oglas je usluga koja živi i izvan aplikacije (web), kao kod drugih oglasnika. Bez in-app purchase infrastrukture. U fazi punjenja sve besplatno; ekrani se dizajniraju sada, naplata se gradi post-launch.
 
 ### 9.6 Isticanje oglasa — highlight bedž i plaćeni boost
 
@@ -544,6 +563,7 @@ Galerija → naslovni blok (isti dvoredni format) → cyan cjenovna traka → **
 
 - **Mobile: sticky donja traka** s cijenom (cyan) + CTA "Kontaktiraj prodavača" — cyan prati korisnika cijelim skrolom (brand-navika pretvorena u UI mehaniku).
 - Desktop: dvostupčano — galerija lijevo, sticky sidebar (cijena/CTA/prodavač) desno.
+- **Kontakt prodavača (ODLUČENO 2026-09-08): v1 = "Nazovi" + strukturirana upit-forma, puni inbox = v1.1.** Upit-forma: bottom sheet s brzim pitanjima ("Je li vozilo dostupno?", "Mogu li doći na pregled?", "Zadnja cijena?") + slobodan tekst; poruka prodavaču stiže kao push/email, odgovor telefonom/emailom. Razlog: HR kupci auta zovu, a real-time chat (moderacija, notifikacije) je prevelik zalogaj za launch. Upit-log ujedno hrani model recenzija (12.1) i mjerljive leadove za trgovce (vrijednost AlphaOne paketa). Inbox (thread pregled) se DIZAJNIRA odmah, gradi u v1.1.
 
 ### 13.3 Galerija
 

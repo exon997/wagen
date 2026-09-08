@@ -78,8 +78,15 @@ Radne vrijednosti (dizajner smije korigirati nijanse, ali pravila ostaju):
 - Spremljene pretrage + notifikacije (14)
 - **Predaja oglasa = "AlphaOne lite" flow** (4.5): VIN sken → vođeno
   fotografiranje → objava (SMS OTP tek pri objavi; anonimno do tada)
+- Kontakt prodavača: "Nazovi" + upit-forma (bottom sheet s brzim
+  pitanjima); **inbox (thread pregled) dizajnirati odmah, gradi se u v1.1**
+- Isticanje oglasa: kupnja TOP boosta — jednokratni paketi, checkout se
+  otvara u browseru (Stripe); samo dizajn, naplata ide post-launch
 - Video ekran oglasa (dijeljenje 9:16 videa — 4.7 V2)
-- Profil / postavke
+- Profil / postavke (5.4): minimalni profil (ime, verificirani telefon,
+  opcionalni email — **bez adrese**); sekcije Moji oglasi · Obavijesti ·
+  Plaćanja · Sigurnost (biometrija/PIN, odjava sa svih uređaja,
+  **brisanje računa**) · Pravno · Podrška · Pozovi prijatelja (placeholder)
 
 ### 4.2 wagen.hr oglasnik — web
 - Homepage (marketing hero + pretraga)
@@ -88,6 +95,7 @@ Radne vrijednosti (dizajner smije korigirati nijanse, ali pravila ostaju):
 - Javna stranica trgovca (18.1 — funkcionalna verzija već postoji)
 - Garaža + spremljene pretrage (web)
 - /za-trgovce (prodajna stranica za salone)
+- Prijava (email + lozinka) + zaboravljena lozinka / reset — samo web
 - 404 / "Prodano" stanja
 
 ### 4.3 Kokpit (web, dealer dashboard)
@@ -148,6 +156,8 @@ Postojeće screenshotove i mockupe naručitelj dostavlja kao polazište.
 
 - Prijedlog display fonta (6.4) + potvrda UI fonta.
 - Konačne AlphaOne nijanse (amber/zelena/crvena) uz zadržanu disciplinu.
-- Tamna tema: oglasnik app da/ne u v1? (web i Kokpit su svijetli)
 - Satirička foto serija (6.5): art direction i procjena produkcije —
   zasebna faza, nije uvjet za UI isporuke.
+
+Napomena (ODLUČENO 2026-09-08): **tamne teme nema u v1** — sve površine
+su svijetle; tokeni se strukturiraju tako da se tema kasnije može dodati.
