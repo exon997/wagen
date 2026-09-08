@@ -23,7 +23,8 @@ function loadToken() {
     const line = readFileSync('.env.local', 'utf8')
       .split('\n')
       .find((l) => l.startsWith('VERCEL_TOKEN='));
-    if (line) return line.slice('VERCEL_TOKEN='.length).trim();
+    // .env format dopusta navodnike oko vrijednosti - skini ih
+    if (line) return line.slice('VERCEL_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
   }
   throw new Error('VERCEL_TOKEN nije postavljen');
 }
