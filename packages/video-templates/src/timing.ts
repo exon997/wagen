@@ -1,4 +1,4 @@
-import type { TemplateConfig } from './schema.js';
+import type { TemplateConfig } from './schema';
 
 /** End card traje zadnje 2,5 s (spec 3.2) - nije dio config.scenes. */
 export const END_CARD_SEC = 2.5;

@@ -4,9 +4,9 @@
  * dosadasnji browser-render iz Kokpita (V1, doc 4.7).
  */
 import { AbsoluteFill, Sequence, useVideoConfig } from 'remotion';
-import type { RenderInput } from '../schema.js';
-import { EndCard, PhotoScene, PricePill, SpecOverlay, Watermark } from '../components.js';
-import { END_CARD_SEC } from '../timing.js';
+import type { RenderInput } from '../schema';
+import { EndCard, PhotoScene, PricePill, SpecOverlay, Watermark } from '../components';
+import { END_CARD_SEC } from '../timing';
 
 export function DealerClassic({ config, photos, listing, link }: RenderInput) {
   const { fps } = useVideoConfig();

@@ -4,10 +4,10 @@
  * samo proslijedi RenderInput.
  */
 import { Composition } from 'remotion';
-import { renderInputSchema, type RenderInput } from './schema.js';
-import { TEMPLATES } from './registry.js';
-import { FPS, HEIGHT, WIDTH, totalDurationInFrames } from './timing.js';
-import { ensureFonts } from './theme.js';
+import { renderInputSchema, type RenderInput } from './schema';
+import { TEMPLATES } from './registry';
+import { FPS, HEIGHT, WIDTH, totalDurationInFrames } from './timing';
+import { ensureFonts } from './theme';
 
 const PLACEHOLDER: RenderInput = {
   config: {

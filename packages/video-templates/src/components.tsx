@@ -4,7 +4,7 @@
  * Tekst postuje TikTok safe zonu (donjih 20 %, desnih 12 %).
  */
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import type { RenderInput, SceneConfig } from './schema.js';
+import type { RenderInput, SceneConfig } from './schema';
 import {
   CYAN,
   FONT_BOLD,
@@ -14,7 +14,7 @@ import {
   INK,
   SAFE_RIGHT_PCT,
   WHITE,
-} from './theme.js';
+} from './theme';
 
 /** Ken Burns: fotka 4:3 u 9:16 kadru - cover + spori zoom/pan po sceni. */
 export function PhotoScene({
@@ -73,10 +73,12 @@ export function PricePill({ label, fontSize = 64 }: { label: string; fontSize?: 
 /** Spec overlay: naslov (13.1 dvoredni) + kljucne brojke, dolje-lijevo
  *  IZNAD safe zone. */
 export function SpecOverlay({ listing }: { listing: RenderInput['listing'] }) {
+  // Bez ponavljanja: godina je vec u naslovu (red 1), motorizacija cesto u redu 2
   const facts = [
-    listing.year ? `${listing.year}.` : null,
     listing.mileageKm ? `${listing.mileageKm.toLocaleString('de-DE')} km` : null,
-    listing.engineLabel,
+    listing.engineLabel && !listing.titleLine2?.includes(listing.engineLabel)
+      ? listing.engineLabel
+      : null,
   ].filter(Boolean);
   return (
     <AbsoluteFill style={{ justifyContent: 'flex-end' }}>
