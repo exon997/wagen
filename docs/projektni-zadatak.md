@@ -238,6 +238,13 @@ izravna poluga za glavni KPI (broj preuzimanja, 4.5).
   Kokpit video prelazi s browser-rendera na server), **V2 uz Blok D** (trigger na
   objavu privatnog oglasa, VideoScreen, push, deferred deep link, story_text,
   dossier `private` varijanta, admin tablica performansi po templateu).
+- **V1 IMPLEMENTIRANO 2026-09-08:** migracija (video_templates/render_jobs/
+  listing_videos/short_links/link_events/share_events, claim RPC sa SKIP
+  LOCKED), `packages/video-templates` (dealer-classic v1, Exo 2, cijena po
+  13.1, TikTok safe zone), `apps/render-worker` u Dockeru na wagen-worker-1
+  (probni render: ~32 s, 3,6 MB — unutar kriterija p95 < 60 s), `/v/{code}`
+  klik-atribucija, Kokpit Mediji na server render. AlphaOne "uskoro" kartice
+  postaju žive u sljedećem app batchu.
 
 ---
 
